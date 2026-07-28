@@ -68,9 +68,24 @@ cd deploy && docker compose up -d    # Server: feste Release-Version aus ghcr.io
 ```
 
 Desktop-Apps für macOS, Windows und Linux hängen an jedem
-[Release](../../releases). Sie sind derzeit **nicht signiert** — macOS
-verlangt beim ersten Start Rechtsklick → Öffnen, Windows zeigt einen
-SmartScreen-Hinweis.
+[Release](../../releases). Sie sind **ad-hoc signiert, aber nicht
+notarisiert** — Gatekeeper und SmartScreen kennen den Herausgeber daher
+nicht:
+
+**macOS:** App aus dem DMG nach `/Applications` ziehen, dann einmalig die
+Quarantäne-Markierung entfernen:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Guardian.app
+```
+
+Alternativ Rechtsklick auf die App → *Öffnen* → *Öffnen* bestätigen.
+
+**Windows:** Im SmartScreen-Dialog *Weitere Informationen* → *Trotzdem
+ausführen*.
+
+Ein Auto-Update ist nicht eingebaut: Für eine neue Version das aktuelle
+Artefakt herunterladen und die App ersetzen.
 
 ## Konfiguration
 

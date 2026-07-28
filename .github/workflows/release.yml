@@ -133,6 +133,9 @@ jobs:
             docker pull ghcr.io/${{ github.repository_owner }}/mira-guardian-server:${{ needs.version.outputs.version }}
             ```
 
-            **Desktop-Apps** — die Builds sind derzeit **nicht signiert**:
-            macOS meldet beim ersten Start einen Gatekeeper-Hinweis
-            (Rechtsklick → Öffnen), Windows zeigt SmartScreen.
+            **Desktop-Apps** — ad-hoc signiert, aber nicht notarisiert.
+            macOS: App nach `/Applications` ziehen, dann einmalig
+            `xattr -dr com.apple.quarantine /Applications/Guardian.app`
+            (oder Rechtsklick → Öffnen). Windows: SmartScreen →
+            *Weitere Informationen* → *Trotzdem ausführen*.
+            Kein Auto-Update — App zum Aktualisieren ersetzen.
