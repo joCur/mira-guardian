@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import type { Guardian } from "@guardian/shared";
-import { normalizeServerUrl } from "../SetupDialog.js";
 
 interface Props {
   guardians: Guardian[];
@@ -11,17 +10,11 @@ interface Props {
 const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).map(p => p[0]!.toUpperCase()).slice(0, 2).join("");
 
-export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onServerUrl }:
-  Props & { serverUrl: string; onServerUrl: (url: string) => Promise<void> }) {
+export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOut }:
+  Props & { serverUrl: string; onSignOut: () => Promise<void> }) {
   const [name, setName] = useState(""), [email, setEmail] = useState("");
-  const [url, setUrl] = useState(serverUrl), [urlError, setUrlError] = useState("");
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const valid = !!name.trim() && email.includes("@");
-  const saveUrl = async () => {
-    const clean = normalizeServerUrl(url);
-    if (!clean) { setUrlError("Muss mit http:// oder https:// beginnen."); return; }
-    setUrlError("");
-    await onServerUrl(clean);
-  };
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[640px] mx-auto">
@@ -66,15 +59,36 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onServer
 
         <div className="mt-[22px] bg-ctp-mantle border border-ctp-surface0 rounded-[10px] px-[18px] py-4">
           <div className="text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold mb-2.5">VERBINDUNG</div>
-          <div className="flex gap-2 flex-wrap">
-            <input value={url} onChange={e => setUrl(e.target.value)} aria-label="Server-Adresse"
-              placeholder="http://localhost:4000"
-              className="flex-1 min-w-[220px] font-mono bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-[12.5px] text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2 outline-none" />
-            <button disabled={url.trim() === serverUrl} onClick={saveUrl}
-              className="rounded-lg px-[18px] py-2 text-[12.5px] font-semibold whitespace-nowrap transition-colors bg-ctp-surface0 text-ctp-text border border-ctp-surface1 hover:bg-ctp-surface1 disabled:text-ctp-overlay0 disabled:cursor-not-allowed">Speichern</button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Die Adresse ist an den Zugang gebunden: Der Token gilt nur für
+                diesen Server. Ändern geht deshalb nur über Abmelden und neu
+                verknüpfen — sonst liefe die App in stumme 401er. */}
+            <span className="font-mono text-[12.5px] text-ctp-subtext1 break-all flex-1 min-w-[200px]">{serverUrl}</span>
+            <button onClick={() => setConfirmSignOut(true)}
+              className="rounded-lg px-[18px] py-2 text-[12.5px] font-semibold whitespace-nowrap transition-colors bg-ctp-red/15 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/25">Abmelden</button>
           </div>
-          {urlError && <div className="text-[11px] text-ctp-red mt-1.5">{urlError}</div>}
-          <div className="text-[11px] text-ctp-overlay0 mt-2 leading-normal">Adresse des Guardian-Servers. Nach dem Speichern verbindet sich die App neu — dein Zugang bleibt erhalten.</div>
+          <div className="text-[11px] text-ctp-overlay0 mt-2 leading-normal">
+            Adresse des Guardian-Servers. Sie gehört zu deinem Zugang und lässt
+            sich nur beim Verknüpfen festlegen — melde dich ab, um dieses Gerät
+            mit einem anderen Server zu verbinden.
+          </div>
+          {confirmSignOut && (
+            <div className="mt-3 rounded-lg border border-ctp-red/40 bg-ctp-red/10 px-3.5 py-3">
+              <div className="text-[12.5px] font-semibold text-ctp-red">Wirklich abmelden?</div>
+              <div className="text-[11.5px] text-ctp-subtext1 mt-1 leading-relaxed">
+                Der Zugang dieses Geräts wird gelöscht. Zum Wiederverbinden
+                brauchst du einen neuen Zugangscode von einem anderen Hüter —
+                bist du der einzige Hüter, kommst du nur über eine neue
+                Server-Einrichtung zurück.
+              </div>
+              <div className="flex gap-2.5 justify-end mt-2.5">
+                <button onClick={() => setConfirmSignOut(false)}
+                  className="rounded-lg px-3.5 py-[7px] text-[12.5px] text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors">Abbrechen</button>
+                <button onClick={() => void onSignOut()}
+                  className="rounded-lg px-4 py-[7px] text-[12.5px] font-semibold bg-ctp-red/25 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/30 transition-colors">Abmelden</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

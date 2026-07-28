@@ -33,12 +33,12 @@ export function AppRoot() {
   // key enthält die Server-URL, damit ein Adresswechsel Client und Store
   // sauber neu aufbaut (neue Verbindung, frischer Stand).
   return <LinkedApp key={`${cfg.token}@${cfg.serverUrl}`} serverUrl={cfg.serverUrl} token={cfg.token}
-    onServerUrl={async (url) => { await window.guardian.setServerUrl(url); setCfg(await window.guardian.getConfig()); }} />;
+    onSignOut={async () => { await window.guardian.clearToken(); setCfg(await window.guardian.getConfig()); }} />;
 }
 
 // Only mounted when a token exists, so api/store are always defined and every hook
 // (useMemo, useStore, useState, useEffect) is called unconditionally on every render.
-function LinkedApp({ serverUrl, token, onServerUrl }: { serverUrl: string; token: string; onServerUrl: (url: string) => Promise<void> }) {
+function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: string; onSignOut: () => Promise<void> }) {
   const api = useMemo(() => new ApiClient(serverUrl, token), [serverUrl, token]);
   const store = useMemo(() => createGuardianStore(api), [api]);
   const state = useStore(store);
@@ -103,7 +103,7 @@ function LinkedApp({ serverUrl, token, onServerUrl }: { serverUrl: string; token
         onVote={(id, s, c) => store.getState().castVote(id, s, c)} />}
       {tab === "meeting" && <MeetingPanel api={api} guardians={guardians} onOpen={openChange} />}
       {tab === "history" && <HistoryPanel api={api} onOpen={openChange} />}
-      {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onServerUrl={onServerUrl} />}
+      {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onSignOut={onSignOut} />}
     </MainWindow>
   );
 }
@@ -119,11 +119,11 @@ function HistoryPanel({ api, onOpen }: { api: ApiClient; onOpen: (id: string) =>
   useEffect(() => { void api.getMyHistory().then(r => setEntries(r.entries)).catch(() => {}); }, [api]);
   return entries ? <HistoryTab entries={entries} onOpen={onOpen} /> : null;
 }
-function GuardiansPanel({ api, serverUrl, onServerUrl }:
-  { api: ApiClient; serverUrl: string; onServerUrl: (url: string) => Promise<void> }) {
+function GuardiansPanel({ api, serverUrl, onSignOut }:
+  { api: ApiClient; serverUrl: string; onSignOut: () => Promise<void> }) {
   const [d, setD] = useState<any>(null);
   const load = () => api.getGuardians().then(setD);
   useEffect(() => { load(); }, [api]);
   return d ? <GuardiansTab guardians={d.guardians} pending={d.pending} serverUrl={serverUrl}
-    onServerUrl={onServerUrl} onInvite={(n, e) => api.invite(n, e).then(load)} /> : null;
+    onSignOut={onSignOut} onInvite={(n, e) => api.invite(n, e).then(load)} /> : null;
 }

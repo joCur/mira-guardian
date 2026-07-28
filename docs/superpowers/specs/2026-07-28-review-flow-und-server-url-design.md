@@ -111,8 +111,15 @@ Nach dem Speichern einer Bewertung wählt die App automatisch die nächste
   vorbelegt mit `http://localhost:4000`. Wird vor dem Verbinden über
   `setServerUrl` gespeichert. Schlägt die Verbindung fehl, erscheint eine
   Fehlermeldung, die die Adresse als mögliche Ursache benennt.
-- **Hüter-Tab:** Abschnitt „Verbindung" mit der aktuellen Adresse, Ändern
-  möglich. Nach dem Speichern verbindet sich die App neu (Token bleibt).
+- **Hüter-Tab:** Abschnitt „Verbindung" zeigt die Adresse **nur an**, dazu
+  ein „Abmelden"-Knopf mit Bestätigung. Korrektur nach Rückmeldung
+  (28.07.2026): Ein nachträglicher Adresswechsel war ein Fehlentwurf — der
+  Gerätetoken wird vom jeweiligen Server ausgegeben und gilt nur dort.
+  Zeigt man die App auf einen anderen Server, liefern alle Anfragen 401;
+  der Client behandelt das nicht und der Setup-Dialog erscheint nur ohne
+  Token — die App wäre in einer stummen Sackgasse. Adresse ändern geht
+  deshalb nur über Abmelden und neu verknüpfen. Die Bestätigung benennt die
+  Folge (neuer Zugangscode nötig).
 - Validierung: nur `http(s)`-URLs, Leerzeichen werden getrimmt, ein
   abschließender `/` entfernt.
 
