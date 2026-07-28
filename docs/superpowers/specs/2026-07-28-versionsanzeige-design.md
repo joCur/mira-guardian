@@ -25,7 +25,7 @@ Gewählt: **Build-Argument im Dockerfile, das zu einer Umgebungsvariablen wird.*
 
 ```dockerfile
 ARG VERSION=0.0.0-dev
-ENV GUARDIAN_VERSION=$VERSION
+ENV GUARDIAN_BUILD_VERSION=$VERSION
 ```
 
 `ARG` und `ENV` stehen als letzte Zeilen der Runtime-Stufe. Damit wertet Docker
@@ -45,9 +45,24 @@ Der Standardwert `0.0.0-dev` gilt für lokale Builds und die Entwicklung. Er ist
 absichtlich als solcher erkennbar, damit ein „dev" im Log nicht mit einem
 Release verwechselt wird.
 
+> **Korrektur nach dem ersten Rollout:** Die Variable hieß zunächst
+> `GUARDIAN_VERSION`. Dieser Name gehört aber schon dem Deployment, das damit
+> den Image-Tag wählt (`deploy/docker-compose.yml`), und `env_file: .env` lädt
+> dieselbe Datei komplett in den Container. Der Tag-Wert überschrieb damit die
+> Angabe aus dem Image: bei `GUARDIAN_VERSION=latest` loggte der Server
+> `guardian-server latest`, und das Widget zeigte „latest" als Server-Version.
+>
+> Deshalb `GUARDIAN_BUILD_VERSION`. Die Trennung ist inhaltlich richtig und
+> nicht bloß eine Ausweichbenennung: der Tag sagt, welches Image geholt wird,
+> die gebaute Version sagt, was darin steckt. Bei `latest` fallen die beiden
+> zwangsläufig auseinander — und genau dann ist die Angabe interessant.
+>
+> Allgemein: Was der Server aus der Umgebung liest, darf niemals so heißen wie
+> etwas, das im Deployment nur zur Interpolation dient.
+
 ## Server
 
-`GUARDIAN_VERSION` kommt als optionaler Wert mit Standard in die Konfiguration,
+`GUARDIAN_BUILD_VERSION` kommt als optionaler Wert mit Standard in die Konfiguration,
 wie alle anderen Einstellungen auch. Zwei Verwendungen:
 
 - **Startzeile im Log:** `guardian-server 0.1.9 hört auf :4000`. Bewusst die
@@ -121,7 +136,7 @@ richtig: ein Versionsunterschied ist ein Hinweis, kein Fehler.
 ## Tests
 
 **Server**
-- Konfiguration: Standardwert `0.0.0-dev`, wenn `GUARDIAN_VERSION` fehlt; der
+- Konfiguration: Standardwert `0.0.0-dev`, wenn `GUARDIAN_BUILD_VERSION` fehlt; der
   gesetzte Wert wird übernommen.
 - `/health` enthält die Version.
 

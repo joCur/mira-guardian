@@ -15,11 +15,21 @@ services:
     # Version über GUARDIAN_VERSION in der .env — ein Update ist damit eine
     # bewusste Änderung und kein Nebeneffekt eines Neustarts. Bewusst ohne
     # Standardwert: der würde hier veralten, während die .env gepflegt wird.
+    #
+    # Dieser Wert wählt nur den Tag. Welche Version tatsächlich läuft, sagt der
+    # Server selbst (Startzeile im Log und /health) — sie steckt als
+    # GUARDIAN_BUILD_VERSION im Image. Das ist der Unterschied, der bei
+    # `GUARDIAN_VERSION=latest` zählt: der Tag sagt dann nichts über den Stand.
     image: ghcr.io/jocur/mira-guardian-server:${GUARDIAN_VERSION:?in der .env setzen, siehe .env.example}
     container_name: mira-guardian-server
     restart: unless-stopped
 
     # ADO-Zugang und Scan-Einstellungen kommen aus .env (Rechte 600).
+    #
+    # Achtung: Das lädt die *gesamte* .env in den Container, also auch
+    # GUARDIAN_VERSION. Eine Einstellung, die der Server liest, darf deshalb
+    # niemals so heißen wie eine, die hier nur zur Interpolation dient — sonst
+    # überschreibt der Deployment-Wert stillschweigend die Angabe aus dem Image.
     env_file: .env
 
     # Betriebspfade gehören zum Deployment und nicht in die .env.
