@@ -31,30 +31,46 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
   const [initCode, setInitCode] = useState(""), [name, setName] = useState(""), [email, setEmail] = useState("");
   const [error, setError] = useState("");
 
-  // Die eingegebene Adresse wird vor dem Verbinden gespeichert — der
-  // ApiClient wird von AppRoot mit ihr neu aufgebaut.
-  async function applyUrl(): Promise<boolean> {
+  // Die eingegebene Adresse wird gespeichert und im selben Schritt verwendet:
+  // Ein Client für genau diese Adresse, damit ein Klick genügt. Auf den von
+  // AppRoot neu aufgebauten Client zu warten hieße, dass der erste Klick
+  // scheinbar wirkungslos bleibt.
+  async function apiForEnteredUrl(): Promise<{ client: ApiClient; url: string } | null> {
     const clean = normalizeServerUrl(url);
-    if (!clean) { setError("Server-Adresse muss mit http:// oder https:// beginnen."); return false; }
-    if (clean !== serverUrl) { await onServerUrl(clean); return false; }
-    return true;
+    if (!clean) { setError("Server-Adresse muss mit http:// oder https:// beginnen."); return null; }
+    if (clean !== serverUrl) await onServerUrl(clean);
+    return { client: api.withBaseUrl(clean), url: clean };
   }
-  const connectHint = (e: Error) =>
+  // Beide Wege verbinden sich mit dem Server, also braucht auch das Erst-Setup
+  // die Adresse — sonst läuft die Initialisierung zwangsweise gegen den
+  // vorbelegten localhost und der Gründungs-Hüter kommt nicht weiter.
+  const urlField = (
+    <>
+      <label className="text-[10px] tracking-[0.08em] font-semibold uppercase text-ctp-subtext0">Server-Adresse</label>
+      <input value={url} onChange={e => setUrl(e.target.value)} placeholder="http://localhost:4000"
+        aria-label="Server-Adresse" className={inputCls} />
+    </>
+  );
+  // Die Meldung nennt die eben eingegebene Adresse, nicht die gespeicherte —
+  // sonst verweist ein Fehlschlag auf einen Server, der nie gefragt wurde.
+  const connectHint = (e: Error, target: string) =>
     /fetch|network|failed/i.test(e.message)
-      ? `${e.message} — erreichbar unter ${serverUrl}?`
+      ? `${e.message} — erreichbar unter ${target}?`
       : e.message;
 
   async function redeem() {
     setError("");
-    if (!(await applyUrl())) return;
-    try { const r = await api.redeem(code.trim().toUpperCase()); onLinked(r.deviceToken, r.guardian); }
-    catch (e) { setError(connectHint(e as Error)); }
+    const target = await apiForEnteredUrl();
+    if (!target) return;
+    try { const r = await target.client.redeem(code.trim().toUpperCase()); onLinked(r.deviceToken, r.guardian); }
+    catch (e) { setError(connectHint(e as Error, target.url)); }
   }
   async function init() {
     setError("");
-    if (!(await applyUrl())) return;
-    try { const r = await api.init(initCode.trim(), name.trim(), email.trim()); onLinked(r.deviceToken, r.guardian); }
-    catch (e) { setError(connectHint(e as Error)); }
+    const target = await apiForEnteredUrl();
+    if (!target) return;
+    try { const r = await target.client.init(initCode.trim(), name.trim(), email.trim()); onLinked(r.deviceToken, r.guardian); }
+    catch (e) { setError(connectHint(e as Error, target.url)); }
   }
 
   return (
@@ -71,9 +87,7 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
               </p>
             </div>
             <div className="px-[22px] pb-[18px] pt-1 flex flex-col gap-2">
-              <label className="text-[10px] tracking-[0.08em] font-semibold uppercase text-ctp-subtext0">Server-Adresse</label>
-              <input value={url} onChange={e => setUrl(e.target.value)} placeholder="http://localhost:4000"
-                aria-label="Server-Adresse" className={inputCls} />
+              {urlField}
               <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="MB-XXXX"
                 className={`${inputCls} text-[17px] tracking-[0.2em] text-center font-mono p-3`} />
               {error && <div className="text-xs text-ctp-red text-center">{error}</div>}
@@ -101,6 +115,7 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
               </div>
             </div>
             <div className="px-[22px] pb-[18px] pt-1 flex flex-col gap-2">
+              {urlField}
               <input value={initCode} onChange={e => setInitCode(e.target.value)} placeholder="Setup-Code aus der Konsole"
                 className={`${inputCls} text-center font-mono tracking-[0.1em]`} />
               <input value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name" className={inputCls} />
