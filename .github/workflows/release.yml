@@ -112,6 +112,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          # Nur die Desktop-Artefakte — ohne pattern zieht der Schritt auch das
+          # .dockerbuild-Artefakt der Container-Aktion, an dem er scheitert.
+          pattern: desktop-*
           path: artifacts
           merge-multiple: true
 
