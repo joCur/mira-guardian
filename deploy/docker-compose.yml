@@ -13,8 +13,9 @@ name: mira-guardian
 services:
   server:
     # Version über GUARDIAN_VERSION in der .env — ein Update ist damit eine
-    # bewusste Änderung und kein Nebeneffekt eines Neustarts.
-    image: ghcr.io/jocur/mira-guardian-server:${GUARDIAN_VERSION:-0.1.5}
+    # bewusste Änderung und kein Nebeneffekt eines Neustarts. Bewusst ohne
+    # Standardwert: der würde hier veralten, während die .env gepflegt wird.
+    image: ghcr.io/jocur/mira-guardian-server:${GUARDIAN_VERSION:?in der .env setzen, siehe .env.example}
     container_name: mira-guardian-server
     restart: unless-stopped
 
