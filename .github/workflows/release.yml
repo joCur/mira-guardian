@@ -50,6 +50,10 @@ jobs:
           context: .
           file: apps/server/Dockerfile
           push: true
+          # Ohne dieses Argument kennt der laufende Server seine Version nicht:
+          # der Tag steckt am Image, nicht im Prozess.
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
           tags: |
             ${{ steps.img.outputs.name }}:${{ needs.version.outputs.version }}
             ${{ steps.img.outputs.name }}:latest

@@ -10,8 +10,13 @@ interface Props {
 const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).map(p => p[0]!.toUpperCase()).slice(0, 2).join("");
 
-export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOut }:
-  Props & { serverUrl: string; onSignOut: () => Promise<void> }) {
+export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOut, appVersion, serverVersion }:
+  Props & { serverUrl: string; onSignOut: () => Promise<void>; appVersion: string; serverVersion: string | null }) {
+  // Nur zwei bekannte, verschiedene Stände sind ein Hinweis. Ein Server, der
+  // seine Version nicht nennt, ist älter als diese Anzeige, und die eigene
+  // Version wird nachgeladen — beides sagt nichts darüber, ob die Stände
+  // zusammenpassen.
+  const laeuftAuseinander = !!appVersion && serverVersion !== null && serverVersion !== appVersion;
   const [name, setName] = useState(""), [email, setEmail] = useState("");
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const valid = !!name.trim() && email.includes("@");
@@ -89,6 +94,20 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
               </div>
             </div>
           )}
+
+          <div className="mt-4 pt-3.5 border-t border-ctp-surface0">
+            <div className="text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold mb-1.5">VERSION</div>
+            <div className="font-mono text-[12.5px] text-ctp-subtext1">
+              Widget {appVersion || "unbekannt"} · Server {serverVersion ?? "unbekannt"}
+            </div>
+            {laeuftAuseinander && (
+              <div className="text-[11.5px] text-ctp-yellow mt-1.5 leading-normal">
+                Die Stände laufen auseinander. Solange sie sich unterscheiden,
+                kann die App Angaben anders auslegen als der Server sie meint —
+                hol die fehlende Seite auf den gleichen Stand.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

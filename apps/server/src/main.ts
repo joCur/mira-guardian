@@ -58,7 +58,7 @@ async function bootstrap() {
   void tick();
 
   await app.listen({ port: config.httpPort, host: "0.0.0.0" });
-  console.log(`guardian-server hört auf :${config.httpPort}`);
+  console.log(`guardian-server ${config.version} hört auf :${config.httpPort}`);
 }
 
 bootstrap().catch((e) => { console.error(e); process.exit(1); });

@@ -50,4 +50,10 @@ export class ApiClient {
   getMeeting() { return this.req<MeetingResponse>("GET", "/meeting"); }
   getMyHistory() { return this.req<{ entries: HistoryEntry[] }>("GET", "/me/history"); }
   getMe() { return this.req<{ guardian: Guardian }>("GET", "/me"); }
+  // Ein Server, der älter ist als diese Anzeige, liefert das Feld nicht — dann
+  // bleibt die Version unbekannt statt undefined durch die Oberfläche zu tragen.
+  async getServerVersion(): Promise<string | null> {
+    const r = await this.req<{ ok: boolean; version?: string }>("GET", "/health");
+    return r.version ?? null;
+  }
 }

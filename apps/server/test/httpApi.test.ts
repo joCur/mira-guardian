@@ -38,6 +38,13 @@ describe("HTTP API", () => {
     expect(res.statusCode).toBe(200);
   });
 
+  // Die Version gehört hierher, damit das Widget sie ohne Zugang lesen kann und
+  // Monitoring sie mitbekommt.
+  it("health reports the running version", async () => {
+    const res = await ctx.app.inject({ method: "GET", url: "/health" });
+    expect(JSON.parse(res.body)).toEqual({ ok: true, version: expect.any(String) });
+  });
+
   it("rejects unauthenticated /changes", async () => {
     const res = await ctx.app.inject({ method: "GET", url: "/changes" });
     expect(res.statusCode).toBe(401);

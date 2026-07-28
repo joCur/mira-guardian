@@ -122,8 +122,17 @@ function HistoryPanel({ api, onOpen }: { api: ApiClient; onOpen: (id: string) =>
 function GuardiansPanel({ api, serverUrl, onSignOut }:
   { api: ApiClient; serverUrl: string; onSignOut: () => Promise<void> }) {
   const [d, setD] = useState<any>(null);
+  const [appVersion, setAppVersion] = useState("");
+  // null heißt "nicht bekannt" — der Server ist nicht erreichbar oder älter als
+  // diese Anzeige. Beides darf den Tab nicht aufhalten.
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
   const load = () => api.getGuardians().then(setD);
-  useEffect(() => { load(); }, [api]);
+  useEffect(() => {
+    load();
+    void window.guardian.getAppVersion().then(setAppVersion).catch(() => {});
+    void api.getServerVersion().then(setServerVersion).catch(() => setServerVersion(null));
+  }, [api]);
   return d ? <GuardiansTab guardians={d.guardians} pending={d.pending} serverUrl={serverUrl}
-    onSignOut={onSignOut} onInvite={(n, e) => api.invite(n, e).then(load)} /> : null;
+    onSignOut={onSignOut} onInvite={(n, e) => api.invite(n, e).then(load)}
+    appVersion={appVersion} serverVersion={serverVersion} /> : null;
 }

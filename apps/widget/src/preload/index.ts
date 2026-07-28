@@ -8,6 +8,7 @@ function on<T>(channel: string, cb: (data: T) => void): () => void {
 
 contextBridge.exposeInMainWorld("guardian", {
   getConfig: () => ipcRenderer.invoke("guardian:getConfig"),
+  getAppVersion: () => ipcRenderer.invoke("guardian:getAppVersion"),
   setToken: (token: string) => ipcRenderer.invoke("guardian:setToken", token),
   clearToken: () => ipcRenderer.invoke("guardian:clearToken"),
   setServerUrl: (url: string) => ipcRenderer.invoke("guardian:setServerUrl", url),

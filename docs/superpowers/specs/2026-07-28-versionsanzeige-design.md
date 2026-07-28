@@ -62,8 +62,19 @@ Container-Aktion.
 
 ## Widget
 
-Die eigene Version kommt über eine neue Bridge-Funktion `getAppVersion()` aus
-`app.getVersion()`. Die Server-Version holt der `ApiClient` von `/health`.
+Die eigene Version wird **beim Bauen eingebacken**: `electron.vite.config.ts`
+liest die `package.json` und setzt sie über `define` als `__APP_VERSION__` in
+den Main-Prozess. Eine neue Bridge-Funktion `getAppVersion()` gibt sie an den
+Renderer weiter. Die Server-Version holt der `ApiClient` von `/health`.
+
+> **Korrektur nach der ersten Verifikation:** Zuerst war `app.getVersion()` als
+> Quelle vorgesehen. In der echten App stand daraufhin `Widget 36.9.5` — die
+> Electron-Version. `app.getVersion()` sucht die `package.json` der App und
+> fällt ohne sie stillschweigend auf die Electron-Version zurück; was
+> herauskommt, hängt also davon ab, wie die App gestartet wurde. Eine
+> Build-Zeit-Konstante ist in jedem Startmodus dieselbe. Die Release-Pipeline
+> patcht die `package.json` weiterhin vor dem Bauen, also bleibt der Wert
+> korrekt.
 
 Angezeigt wird beides im Hüter-Tab als eigener Abschnitt unter „Verbindung" —
 dort stehen schon Server-Adresse und Abmelden, also die technischen Angaben.
@@ -85,11 +96,14 @@ dort stehen schon Server-Adresse und Abmelden, also die technischen Angaben.
 | Beide Versionen gleich | `Widget 0.1.9 · Server 0.1.9`, ohne weiteren Hinweis |
 | Versionen verschieden | derselbe Text, dazu ein gelber Hinweis, dass die Stände auseinanderlaufen |
 | Server nicht erreichbar oder ohne Versionsangabe | `Widget 0.1.9 · Server unbekannt` |
+| Eigene Version noch nicht geladen | `Widget unbekannt · Server 0.1.9` |
 
-Der dritte Zustand ist kein Randfall: Beim Rollout trifft eine neue App
-zwangsläufig auf einen Server, dessen `/health` noch keine Version liefert. Ein
-fehlendes Feld darf die Anzeige deshalb nicht stören und keinen Hinweis
-auslösen — nur ein tatsächlich bekannter, abweichender Stand tut das.
+Die letzten beiden Zustände sind keine Randfälle. Beim Rollout trifft eine neue
+App zwangsläufig auf einen Server, dessen `/health` noch keine Version liefert,
+und die eigene Version wird asynchron nachgeladen. In beiden Fällen ist nur eine
+Seite bekannt — das sagt nichts darüber, ob die Stände zusammenpassen. Der
+Hinweis erscheint deshalb ausschließlich, wenn **beide** Versionen bekannt und
+verschieden sind.
 
 Gelb ist in der App die Farbe für „schau hin" (Klärungsbedarf) und damit hier
 richtig: ein Versionsunterschied ist ein Hinweis, kein Fehler.
@@ -112,9 +126,11 @@ richtig: ein Versionsunterschied ist ein Hinweis, kein Fehler.
 - `/health` enthält die Version.
 
 **Widget**
-- Hüter-Tab in allen drei Zuständen: gleich (kein Hinweis), verschieden
-  (Hinweis), Server ohne Versionsangabe (kein Hinweis, „unbekannt").
+- Hüter-Tab in allen vier Zuständen: gleich (kein Hinweis), verschieden
+  (Hinweis), Server ohne Versionsangabe und eigene Version noch nicht geladen
+  (beide „unbekannt", kein Hinweis).
 - `ApiClient`: `/health` wird gelesen, eine fehlende Version ergibt `null`.
 
 **Abschließend** Verifikation in der echten Electron-App gegen einen Server mit
-gesetzter und einen mit abweichender Version.
+gleicher und einen mit abweichender Version, dazu ein Container-Bau mit und ohne
+`VERSION`-Argument.

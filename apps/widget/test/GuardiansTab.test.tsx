@@ -10,7 +10,8 @@ const guardians = [
 function setup(over: Partial<Parameters<typeof GuardiansTab>[0]> = {}) {
   const onSignOut = vi.fn(async () => {});
   render(<GuardiansTab guardians={guardians} pending={[]} onInvite={vi.fn()}
-    serverUrl="http://localhost:4000" onSignOut={onSignOut} {...over} />);
+    serverUrl="http://localhost:4000" onSignOut={onSignOut}
+    appVersion="0.1.0" serverVersion={null} {...over} />);
   return { onSignOut };
 }
 
@@ -50,5 +51,39 @@ describe("GuardiansTab — Verbindung", () => {
     await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
     expect(screen.queryByText("Wirklich abmelden?")).toBeNull();
     expect(onSignOut).not.toHaveBeenCalled();
+  });
+});
+
+// Ohne Versionsanzeige war von außen nicht erkennbar, welcher Stand läuft —
+// nach einem Server-Update blieb offen, ob die App dazu passt.
+describe("GuardiansTab — Version", () => {
+  it("nennt beide Versionen und schweigt, wenn sie übereinstimmen", () => {
+    setup({ appVersion: "0.1.9", serverVersion: "0.1.9" });
+    expect(screen.getByText(/Widget 0\.1\.9/)).toBeTruthy();
+    expect(screen.getByText(/Server 0\.1\.9/)).toBeTruthy();
+    expect(screen.queryByText(/auseinander/)).toBeNull();
+  });
+
+  it("weist auf auseinanderlaufende Stände hin", () => {
+    setup({ appVersion: "0.1.7", serverVersion: "0.1.9" });
+    expect(screen.getByText(/Widget 0\.1\.7/)).toBeTruthy();
+    expect(screen.getByText(/Server 0\.1\.9/)).toBeTruthy();
+    expect(screen.getByText(/auseinander/)).toBeTruthy();
+  });
+
+  // Beim Rollout trifft eine neue App zwangsläufig auf einen Server, dessen
+  // /health noch keine Version liefert. Das ist kein Anlass für einen Hinweis.
+  it("bleibt still, wenn der Server keine Version nennt", () => {
+    setup({ appVersion: "0.1.9", serverVersion: null });
+    expect(screen.getByText(/Server unbekannt/)).toBeTruthy();
+    expect(screen.queryByText(/auseinander/)).toBeNull();
+  });
+
+  // Die eigene Version wird asynchron nachgeladen. Bis sie da ist, darf keine
+  // Lücke stehen und erst recht kein Unterschied behauptet werden.
+  it("nennt die eigene Version unbekannt, solange sie fehlt", () => {
+    setup({ appVersion: "", serverVersion: "0.1.9" });
+    expect(screen.getByText(/Widget unbekannt/)).toBeTruthy();
+    expect(screen.queryByText(/auseinander/)).toBeNull();
   });
 });

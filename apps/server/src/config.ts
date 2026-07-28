@@ -16,12 +16,17 @@ const schema = z.object({
   TYPE_MAP: z.string().optional(),
   DB_PATH: z.string().default("guardian.sqlite"),
   HTTP_PORT: z.coerce.number().int().positive().default(4000),
+  // Kommt beim Container-Bau als Build-Argument herein. Der Standard ist
+  // absichtlich als Nicht-Release erkennbar, damit ein lokaler Build im Log
+  // nicht wie eine veröffentlichte Version aussieht.
+  GUARDIAN_VERSION: z.string().min(1).default("0.0.0-dev"),
 });
 
 export interface Config {
   adoBaseUrl: string; adoCollection: string; adoProject: string; adoRepo: string;
   adoBranch: string; adoPat: string; pollIntervalSeconds: number; backfillDays: number;
   scanPaths: string[]; typeRules: TypeRule[] | undefined; dbPath: string; httpPort: number;
+  version: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -47,7 +52,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     backfillDays: e.BACKFILL_DAYS,
     scanPaths: e.SCAN_PATHS.split(",").map(s => s.trim()).filter(Boolean),
     typeRules,
-    dbPath: e.DB_PATH, httpPort: e.HTTP_PORT,
+    dbPath: e.DB_PATH, httpPort: e.HTTP_PORT, version: e.GUARDIAN_VERSION,
   };
 }
 
