@@ -1,0 +1,135 @@
+name: Release
+
+# Continuous Delivery: jeder Push auf main baut Container und Desktop-Apps
+# und veröffentlicht sie als GitHub-Release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      # Basisversion aus der Root-package.json, Patch-Stelle = Build-Nummer.
+      # Dadurch ist jede Release-Version eindeutig und monoton steigend.
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=0.1.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+  container:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image-Name kleinschreiben
+        id: img
+        run: echo "name=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/mira-guardian-server" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.img.outputs.name }}:${{ needs.version.outputs.version }}
+            ${{ steps.img.outputs.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  desktop:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifacts: "*.dmg,*.zip"
+          - os: windows-latest
+            artifacts: "*.exe"
+          - os: ubuntu-latest
+            artifacts: "*.AppImage,*.deb"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Version setzen
+        run: node -e "const f='apps/widget/package.json',p=require('./'+f);p.version='${{ needs.version.outputs.version }}';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+
+      - run: pnpm --filter @guardian/shared build
+      - run: pnpm --filter @guardian/widget build
+
+      - name: Desktop-App paketieren
+        run: pnpm --filter @guardian/widget exec electron-builder --config electron-builder.yml --publish never
+        env:
+          # Unsigniert bauen, solange kein Apple-Zertifikat hinterlegt ist.
+          # Mit CSC_LINK/CSC_KEY_PASSWORD als Secrets entfällt diese Zeile.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            apps/widget/dist/*.dmg
+            apps/widget/dist/*.zip
+            apps/widget/dist/*.exe
+            apps/widget/dist/*.AppImage
+            apps/widget/dist/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: [version, container, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: v${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: artifacts/*
+          body: |
+            Automatischer Release aus `main` (Build ${{ github.run_number }}).
+
+            **Server-Container**
+            ```
+            docker pull ghcr.io/${{ github.repository_owner }}/mira-guardian-server:${{ needs.version.outputs.version }}
+            ```
+
+            **Desktop-Apps** — die Builds sind derzeit **nicht signiert**:
+            macOS meldet beim ersten Start einen Gatekeeper-Hinweis
+            (Rechtsklick → Öffnen), Windows zeigt SmartScreen.

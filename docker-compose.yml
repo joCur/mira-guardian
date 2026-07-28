@@ -1,0 +1,18 @@
+services:
+  guardian-server:
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    ports: ["4000:4000"]
+    environment:
+      ADO_BASE_URL: ${ADO_BASE_URL}
+      ADO_COLLECTION: ${ADO_COLLECTION}
+      ADO_PROJECT: ${ADO_PROJECT}
+      ADO_REPO: ${ADO_REPO}
+      ADO_BRANCH: ${ADO_BRANCH:-main}
+      ADO_PAT: ${ADO_PAT}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+      SCAN_PATHS: ${SCAN_PATHS:-docs/decisions,docs/learnings,memory-bank}
+      DB_PATH: /data/guardian.sqlite
+      HTTP_PORT: "4000"
+    volumes: ["guardian-data:/data"]
+volumes:
+  guardian-data:

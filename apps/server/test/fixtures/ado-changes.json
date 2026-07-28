@@ -1,0 +1,4 @@
+{ "changes": [
+  { "item": { "path": "/docs/decisions/adr-013.md", "isFolder": false }, "changeType": "add" },
+  { "item": { "path": "/README.md", "isFolder": false }, "changeType": "edit" }
+]}
