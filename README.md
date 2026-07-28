@@ -56,11 +56,15 @@ pnpm --filter @guardian/widget dist
 
 ## Betrieb
 
-Der Server läuft als Container:
+Der Server läuft als Container. Die `docker-compose.yml` im Wurzelverzeichnis
+baut das Image aus dem Arbeitsstand; für einen Server liegt unter
+[`deploy/`](deploy/) ein Deployment aus dem veröffentlichten Release-Image — mit
+fester Version und der SQLite-Datei als Bind-Mount im Dateisystem statt in einem
+Docker-Volume, damit ein Serverumzug ein Kopieren bleibt.
 
 ```bash
-docker pull ghcr.io/<owner>/mira-guardian-server:latest
-docker compose up -d          # nutzt die .env im Wurzelverzeichnis
+docker compose up -d                 # Wurzelverzeichnis: baut lokal, nutzt die .env dort
+cd deploy && docker compose up -d    # Server: feste Release-Version aus ghcr.io
 ```
 
 Desktop-Apps für macOS, Windows und Linux hängen an jedem
