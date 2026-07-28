@@ -23,25 +23,34 @@ const meeting = (changes: ChangeWithVotes[], counts: Partial<MeetingResponse["co
 });
 
 describe("MeetingTab", () => {
-  it("shows the empty state when everything is accepted", () => {
+  it("shows the empty state when there is nothing to discuss", () => {
     render(<MeetingTab meeting={meeting([])} onOpen={vi.fn()} />);
-    expect(screen.getByText("Alles bestätigt")).toBeTruthy();
+    expect(screen.getByText("Nichts zu besprechen")).toBeTruthy();
   });
 
-  it("lists pending changes too, not only rejections and klaerung", () => {
-    const m = meeting([ch("c1", [["g1", "offen", null], ["g2", "offen", null]])], { offen: 1 });
+  it("reports pending confirmations as a hint, not as list entries", () => {
+    // 102 ausstehende Bewertungen dürfen die Liste nicht überschwemmen.
+    const m = meeting([], { offen: 102, gesamt: 102 });
+    render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
+    expect(screen.getByText(/102 Änderungen warten noch auf Bestätigungen/)).toBeTruthy();
+    expect(screen.getByText("Nichts zu besprechen")).toBeTruthy();
+  });
+
+  it("shows the pending hint alongside real discussion items", () => {
+    const m = meeting([ch("c1", [["g1", "abgelehnt", "nein"]])], { abgelehnt: 1, offen: 5, gesamt: 6 });
     render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
     expect(screen.getByText("memory-bank/c1.md")).toBeTruthy();
-    expect(screen.getByText(/1 ausstehend/)).toBeTruthy();
+    expect(screen.getByText(/5 Änderungen warten noch auf Bestätigungen/)).toBeTruthy();
+    expect(screen.getByText(/1 abgelehnt/)).toBeTruthy();
   });
 
   it("shows each guardian's state so the team sees who is missing", () => {
-    const m = meeting([ch("c1", [["g1", "akzeptiert", null], ["g2", "offen", null]])], { offen: 1 });
+    const m = meeting([ch("c1", [["g1", "akzeptiert", null], ["g2", "klaerung", "warum?"]])], { klaerung: 1 });
     render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
     expect(screen.getByText("Anna")).toBeTruthy();
     expect(screen.getByText("Bert")).toBeTruthy();
     expect(screen.getByText("Akzeptiert")).toBeTruthy();
-    expect(screen.getByText("ausstehend")).toBeTruthy();
+    expect(screen.getByText("Klärungsbedarf")).toBeTruthy();
   });
 
   it("shows comments of rejections and klaerung", () => {

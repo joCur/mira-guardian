@@ -67,6 +67,17 @@ describe("ChangeService — zyklusfreie Listen", () => {
     expect(svc.openChanges().map(c => c.id)).toEqual(["c2", "c3", "c1"]);
   });
 
+  it("meetingChanges holds only real discussion items, not pending ones", () => {
+    add("c1", "cy1", "docs/decisions/a.md");   // nur ausstehend → kein Streitfall
+    add("c2", "cy2", "docs/decisions/b.md");
+    vote("c2", "g1", "abgelehnt");
+    add("c3", "cy1", "docs/decisions/c.md");
+    vote("c3", "g1", "klaerung");
+    expect(svc.meetingChanges().map(c => c.id)).toEqual(["c2", "c3"]);
+    // Der Zähler kennt die Ausstehenden weiterhin — als Hinweis fürs Team.
+    expect(svc.meetingCounts()).toEqual({ abgelehnt: 1, klaerung: 1, offen: 1, gesamt: 3 });
+  });
+
   it("badgeCount counts my pending votes across cycles", () => {
     add("c1", "cy1", "docs/decisions/a.md");
     add("c2", "cy2", "docs/decisions/b.md");

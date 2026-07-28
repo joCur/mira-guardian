@@ -51,6 +51,16 @@ export class ChangeService {
       .filter(c => !this.allAccepted(c.id) && this.myStatus(c.id, guardianId) === "offen").length;
   }
 
+  // Echte Streitfälle fürs Team: abgelehnt oder mit Klärungsbedarf. Rein
+  // ausstehende Bewertungen gehören nicht hierher — sie erscheinen nur als
+  // Zähler, sonst ertränken sie die Liste.
+  meetingChanges(): Change[] {
+    return this.openChanges().filter(c => {
+      const s = this.stripeStatus(c.id);
+      return s === "abgelehnt" || s === "klaerung";
+    });
+  }
+
   // Zähler für die Hüter-Übersicht: wie viele Änderungen je schlechtestem Status.
   meetingCounts() {
     const open = this.openChanges();

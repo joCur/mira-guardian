@@ -96,7 +96,7 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
 
     // Hüter-Übersicht: alles, was das Team noch gemeinsam durchgehen muss.
     secured.get("/meeting", async () => ({
-      changes: changeService.openChanges().map(c => withVotes(c.id)!),
+      changes: changeService.meetingChanges().map(c => withVotes(c.id)!),
       counts: changeService.meetingCounts(),
     }));
 

@@ -73,9 +73,12 @@ Der Tab hieß „Meeting-Übersicht"; ohne Wochen-Meeting trägt der Name nicht
 mehr. Neuer Name: **Offene Punkte** (auch als Überschrift), klar abgegrenzt
 vom bestehenden Tab „Hüter" für die Nutzerverwaltung.
 
-Zeigt **alle Änderungen, die nicht von allen akzeptiert sind**, damit das Team
-sie gemeinsam durchgehen kann. Sortierung worst-first: abgelehnt →
-Klärungsbedarf → ausstehend. Jede Karte zeigt wie bisher Pfad, Commit, Autor,
+Zeigt die **echten Streitfälle**: abgelehnte Änderungen und solche mit
+Klärungsbedarf, worst-first (abgelehnt zuerst). Rein ausstehende Bewertungen
+erscheinen **nicht** in der Liste, sondern nur als Hinweiszeile mit Anzahl
+(„102 Änderungen warten noch auf Bestätigungen") — im Praxistest
+überschwemmten sie die Liste und machten sie unbrauchbar (Korrektur nach
+Rückmeldung, 28.07.2026). Jede Karte zeigt wie bisher Pfad, Commit, Autor,
 Zusammenfassung, alle Kommentare — plus neu eine Zeile mit dem Stand aller
 Hüter (Avatare mit Status), damit im Meeting sichtbar ist, auf wen noch
 gewartet wird.
