@@ -1,6 +1,9 @@
 appId: de.mediainterface.mira-guardian
 productName: Memory-Bank Hüter
 copyright: MediaInterface GmbH
+# Linux leitet den Namen der ausführbaren Datei sonst aus dem Paketnamen
+# (@guardian/widget) ab — als Dateiname unzulässig.
+executableName: mira-guardian
 
 directories:
   output: dist
@@ -39,3 +42,4 @@ linux:
   category: Development
   maintainer: MediaInterface GmbH
   artifactName: mira-guardian-${version}-linux-${arch}.${ext}
+  synopsis: Review-Werkzeug für Memory-Bank-Änderungen
