@@ -84,4 +84,39 @@ export class ChangeService {
       if (!has) this.store.upsertVote({ changeId: c.id, guardianId, status: "offen", comment: null, updatedAt: now });
     }
   }
+
+  // Selbstheilung beim Serverstart. Fehlt einem Hüter die Bewertungszeile, hat
+  // er im Widget nichts zum Anklicken — passiert, sobald Änderungen eingelesen
+  // wurden, bevor es überhaupt Hüter gab. Gibt zurück, wie viele Zeilen
+  // nachgezogen wurden.
+  repairMissingVotes(now: string): number {
+    const guardians = this.store.listGuardians();
+    let added = 0;
+    for (const c of this.store.listAllChanges()) {
+      const have = new Set(this.votes(c.id).map(v => v.guardianId));
+      for (const g of guardians) {
+        if (have.has(g.id)) continue;
+        this.store.upsertVote({ changeId: c.id, guardianId: g.id, status: "offen", comment: null, updatedAt: now });
+        added++;
+      }
+    }
+    return added;
+  }
+
+  // Altlast aufräumen: Bis die Umbenennungs-Flags von ADO ausgewertet wurden,
+  // landete die Quellseite jeder Verschiebung als Änderung ohne alten und ohne
+  // neuen Inhalt in der Liste. Solche Einträge zeigen nichts an und lassen sich
+  // nicht sinnvoll bewerten. Löschungen bleiben (leer ist dort korrekt), und
+  // alles, wozu schon jemand Stellung genommen hat, bleibt ebenfalls stehen.
+  purgeContentlessChanges(): number {
+    let removed = 0;
+    for (const c of this.store.listAllChanges()) {
+      if (c.changeKind === "delete") continue;
+      if ((c.newMd ?? "") !== "" || (c.oldMd ?? "") !== "") continue;
+      if (this.votes(c.id).some(v => v.status !== "offen")) continue;
+      this.store.deleteChange(c.id);
+      removed++;
+    }
+    return removed;
+  }
 }

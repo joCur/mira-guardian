@@ -166,6 +166,87 @@ describe("AdoPoller", () => {
     expect(s.getLastSeenCommit("R", "main")).toBe("c1");
   });
 
+  // Umbenennen/Verschieben: ADO listet beide Seiten. Die Quellseite darf keinen
+  // eigenen Eintrag erzeugen — zu ihrem Pfad gibt es im Commit keinen Inhalt
+  // mehr, sie landete bisher als vollständig leere Änderung in der Liste.
+  it("records a move as one change with previousPath, not as an empty ghost", async () => {
+    ado.commits = [{ commitId: "c1", comment: "ADRs auf Erstelldatum", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [
+      { path: "docs/decisions/0001-alt.md", changeType: "delete", renameSource: true },
+      { path: "docs/decisions/2026-06-15-neu.md", changeType: "edit",
+        previousPath: "docs/decisions/0001-alt.md", contentUnchanged: true },
+    ];
+    ado.contentByCommit["c1"] = { "docs/decisions/2026-06-15-neu.md": "# ADR" };
+
+    const ids = await poller.pollOnce();
+    expect(ids).toHaveLength(1);
+    const changes = s.listChangesByCycle("cy1");
+    expect(changes).toHaveLength(1);
+    expect(changes[0].filePath).toBe("docs/decisions/2026-06-15-neu.md");
+    expect(changes[0].previousPath).toBe("docs/decisions/0001-alt.md");
+    expect(changes[0].changeKind).toBe("rename"); // Inhalt unverändert
+    expect(changes[0].newMd).toBe("# ADR");
+    expect(s.listVotesByChange(changes[0].id)[0].status).toBe("offen");
+  });
+
+  it("keeps changeKind modify when a move also changed the content", async () => {
+    ado.commits = [{ commitId: "c1", comment: "verschoben und ergänzt", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [
+      { path: "docs/decisions/alt.md", changeType: "delete", renameSource: true },
+      { path: "memory-bank/neu.md", changeType: "edit",
+        previousPath: "docs/decisions/alt.md", contentUnchanged: false },
+    ];
+    ado.contentByCommit["c1"] = { "memory-bank/neu.md": "# Neu" };
+
+    await poller.pollOnce();
+    const c = s.listChangesByCycle("cy1")[0];
+    expect(c.changeKind).toBe("modify");
+    expect(c.previousPath).toBe("docs/decisions/alt.md");
+  });
+
+  // Der bestehende Eintrag wandert mit: gleiche Identität, neuer Pfad. Sonst
+  // stünde dieselbe Datei doppelt in der Liste — einmal alt, einmal neu.
+  it("moves an existing change to the new path instead of duplicating it", async () => {
+    ado.commits = [{ commitId: "c1", comment: "v1", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [{ path: "docs/decisions/alt.md", changeType: "add" }];
+    ado.contentByCommit["c1"] = { "docs/decisions/alt.md": "# Stand 1" };
+    await poller.pollOnce();
+    const before = s.listChangesByCycle("cy1")[0];
+
+    ado.commits = [
+      { commitId: "c2", comment: "auf App-Ebene verschoben", author: { name: "A", email: "a@x.de", date: "t" } },
+      { commitId: "c1", comment: "v1", author: { name: "A", email: "a@x.de", date: "t" } },
+    ];
+    ado.changesByCommit["c2"] = [
+      { path: "docs/decisions/alt.md", changeType: "delete", renameSource: true },
+      { path: "apps/mira-desktop/docs/decisions/alt.md", changeType: "edit",
+        previousPath: "docs/decisions/alt.md", contentUnchanged: true },
+    ];
+    ado.contentByCommit["c2"] = { "apps/mira-desktop/docs/decisions/alt.md": "# Stand 1" };
+    await poller.pollOnce();
+
+    const after = s.listChangesByCycle("cy1");
+    expect(after).toHaveLength(1);
+    expect(after[0].id).toBe(before.id); // gleiche Identität, Historie bleibt
+    expect(after[0].filePath).toBe("apps/mira-desktop/docs/decisions/alt.md");
+    expect(after[0].previousPath).toBe("docs/decisions/alt.md");
+  });
+
+  // Sonderfall: Das Ziel liegt außerhalb der Scan-Pfade. Für die Memory-Bank
+  // ist das Dokument dann wirklich weg — die Quellseite bleibt ein Löschen.
+  it("treats a move out of the scanned paths as a delete", async () => {
+    ado.commits = [{ commitId: "c1", comment: "raus aus der Memory-Bank", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [
+      { path: "docs/decisions/alt.md", changeType: "delete", renameSource: true },
+      { path: "archiv/alt.md", changeType: "edit", previousPath: "docs/decisions/alt.md", contentUnchanged: true },
+    ];
+    await poller.pollOnce();
+    const changes = s.listChangesByCycle("cy1");
+    expect(changes).toHaveLength(1);
+    expect(changes[0].filePath).toBe("docs/decisions/alt.md");
+    expect(changes[0].changeKind).toBe("delete");
+  });
+
   it("first poll without cursor backfills only the last BACKFILL_DAYS days", async () => {
     const isoNow = () => "2026-07-21T12:00:00.000Z";
     const p = new AdoPoller(cfg, s, svc, ado as unknown as AdoClient, isoNow);

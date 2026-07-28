@@ -58,7 +58,7 @@ describe("HTTP API", () => {
     const cycle = ctx.store.getOpenCycle()!;
     ctx.store.upsertChange({ id: "c1", repo: "R", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", cycleId: cycle.id, firstSeenAt: "t" });
+      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, cycleId: cycle.id, firstSeenAt: "t" });
     ctx.changeService.ensureVotesForChange("c1", now());
 
     const bad = await ctx.app.inject({ method: "POST", url: "/changes/c1/vote",

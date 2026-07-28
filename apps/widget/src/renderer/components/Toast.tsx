@@ -26,6 +26,11 @@ export function Toast({ data, onView, onDismiss }:
           {data.changeKind === "add" && (
             <span className="text-[9px] font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1 py-px shrink-0">NEU</span>
           )}
+          {/* Sonst sähe eine Verschiebung aus wie eine gewöhnliche Änderung an
+              einer Datei, die es unter diesem Namen noch nie gab. */}
+          {data.changeKind === "rename" && (
+            <span className="text-[9px] font-bold tracking-wide text-ctp-blue bg-ctp-blue/20 rounded px-1 py-px shrink-0">VERSCHOBEN</span>
+          )}
         </div>
         <div className="text-[11.5px] text-ctp-subtext0 truncate mt-0.5">{data.summary} · {data.authorName}</div>
       </div>

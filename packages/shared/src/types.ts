@@ -1,7 +1,10 @@
 export const VOTE_STATUSES = ["offen", "akzeptiert", "klaerung", "abgelehnt"] as const;
 export type VoteStatus = (typeof VOTE_STATUSES)[number];
 
-export const CHANGE_KINDS = ["add", "modify", "delete"] as const;
+// "rename" = umbenannt oder verschoben, ohne dass sich der Inhalt geändert hat.
+// Wurde zusätzlich am Inhalt gearbeitet, bleibt es "modify" — in beiden Fällen
+// trägt die Änderung den alten Pfad in previousPath.
+export const CHANGE_KINDS = ["add", "modify", "delete", "rename"] as const;
 export type ChangeKind = (typeof CHANGE_KINDS)[number];
 
 export interface Guardian {
@@ -36,6 +39,8 @@ export interface Change {
   summary: string;
   oldMd: string | null;
   newMd: string | null;
+  /** Pfad vor dem Commit, wenn die Datei umbenannt oder verschoben wurde. */
+  previousPath: string | null;
   cycleId: string;
   firstSeenAt: string;
 }

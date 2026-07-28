@@ -36,6 +36,39 @@ describe("AdoClient", () => {
     expect(changes).toContainEqual({ path: "docs/decisions/adr-013.md", changeType: "add" });
   });
 
+  // ADO liefert changeType als Flag-Kombination ("edit, rename",
+  // "delete, sourceRename"). Wer nur auf die drei Basiswerte prüft, hält die
+  // Quellseite einer Umbenennung für eine normale Änderung und liest zu einem
+  // Pfad ein, den es im Commit nicht mehr gibt.
+  it("parses composite changeType flags from a rename commit", async () => {
+    const c = new AdoClient(cfg, fakeFetch({ "/changes": fx("ado-changes-rename.json") }));
+    const changes = await c.listCommitChanges("def456");
+
+    // Reine Umbenennung: gleicher Blob vor und nach dem Commit.
+    expect(changes).toContainEqual({
+      path: "docs/decisions/2026-06-15-electron-react-stack.md", changeType: "edit",
+      previousPath: "docs/decisions/0001-electron-react-stack.md", contentUnchanged: true,
+    });
+    // Umbenennung mit Inhaltsänderung: Blob-Id wechselt.
+    expect(changes).toContainEqual({
+      path: "docs/decisions/2026-06-15-build-tooling.md", changeType: "edit",
+      previousPath: "docs/decisions/0002-build-tooling.md", contentUnchanged: false,
+    });
+    // Quellseiten sind als solche erkennbar und kein echtes Löschen.
+    expect(changes.filter(c => c.renameSource).map(c => c.path)).toEqual([
+      "docs/decisions/0001-electron-react-stack.md",
+      "docs/decisions/0002-build-tooling.md",
+    ]);
+    // Ein echtes Löschen bleibt ein Löschen.
+    expect(changes).toContainEqual({ path: "docs/decisions/0099-aufgeloest.md", changeType: "delete" });
+  });
+
+  it("skips tree entries even when isFolder is absent", async () => {
+    const c = new AdoClient(cfg, fakeFetch({ "/changes": fx("ado-changes-rename.json") }));
+    const changes = await c.listCommitChanges("def456");
+    expect(changes.map(c => c.path)).not.toContain("docs");
+  });
+
   it("returns item content, or null on 404", async () => {
     const ok = new AdoClient(cfg, fakeFetch({ "/items": fx("ado-item.json") }));
     expect(await ok.getItemContent("docs/decisions/adr-013.md", "def456")).toBe("# ADR-013\n\nInhalt.");

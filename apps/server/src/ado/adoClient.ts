@@ -1,9 +1,53 @@
 import type { Config } from "../config.js";
 
 export interface AdoCommit { commitId: string; comment: string; author: { name: string; email: string; date: string } }
-export interface AdoFileChange { path: string; changeType: "add" | "edit" | "delete" }
+export interface AdoFileChange {
+  path: string;
+  changeType: "add" | "edit" | "delete";
+  /** Pfad vor dem Commit, wenn ADO die Änderung als Umbenennung meldet. */
+  previousPath?: string;
+  /** Blob-Id vor und nach dem Commit sind gleich — reines Umbenennen/Verschieben. */
+  contentUnchanged?: boolean;
+  /** Quellseite einer Umbenennung: die Datei lebt unter dem neuen Pfad weiter. */
+  renameSource?: boolean;
+}
+
+interface AdoChangeEntry {
+  item: { path: string; isFolder?: boolean; gitObjectType?: string; objectId?: string; originalObjectId?: string };
+  sourceServerItem?: string;
+  changeType: string;
+}
 
 const API = "api-version=7.1";
+
+const strip = (p: string) => p.replace(/^\//, "");
+
+// Ordner tragen kein isFolder, wenn ADO sie als Rename-Quelle meldet — dann
+// verrät nur gitObjectType, dass es ein Baum und keine Datei ist.
+function isFile(c: AdoChangeEntry): boolean {
+  return !c.item.isFolder && c.item.gitObjectType !== "tree";
+}
+
+// ADO setzt changeType als Flag-Kombination zusammen: "edit", "add",
+// "edit, rename" (Zielseite einer Umbenennung), "delete, sourceRename"
+// (Quellseite). Wer nur die drei Basiswerte kennt, hält die Quellseite für eine
+// normale Änderung und liest zu einem Pfad ein, der im Commit nicht mehr
+// existiert — heraus kommt eine Änderung ohne jeden Inhalt.
+function toFileChange(c: AdoChangeEntry): AdoFileChange {
+  const flags = new Set(c.changeType.split(",").map(f => f.trim().toLowerCase()));
+  const changeType = flags.has("delete") ? "delete" : flags.has("add") ? "add" : "edit";
+  const out: AdoFileChange = { path: strip(c.item.path), changeType };
+
+  if (flags.has("sourcerename") && changeType === "delete") out.renameSource = true;
+  if ((flags.has("rename") || flags.has("targetrename")) && c.sourceServerItem) {
+    out.previousPath = strip(c.sourceServerItem);
+    // Gleiche Blob-Id vor und nach dem Commit heißt: nur der Pfad hat sich
+    // geändert. Ohne beide Ids bleiben wir vorsichtig und nehmen eine
+    // Inhaltsänderung an.
+    out.contentUnchanged = !!c.item.objectId && c.item.objectId === c.item.originalObjectId;
+  }
+  return out;
+}
 
 export class AdoClient {
   constructor(private cfg: Config, private fetchFn: typeof fetch = fetch) {}
@@ -30,10 +74,8 @@ export class AdoClient {
     const url = `${this.base}/commits/${commitId}/changes?${API}`;
     const res = await this.fetchFn(url, { headers: this.headers() });
     if (!res.ok) throw new Error(`ADO changes ${res.status}`);
-    const body = await res.json() as { changes: { item: { path: string; isFolder?: boolean }; changeType: string }[] };
-    return body.changes
-      .filter(c => !c.item.isFolder)
-      .map(c => ({ path: c.item.path.replace(/^\//, ""), changeType: c.changeType as AdoFileChange["changeType"] }));
+    const body = await res.json() as { changes: AdoChangeEntry[] };
+    return body.changes.filter(isFile).map(toFileChange);
   }
 
   async getItemContent(path: string, commitId: string): Promise<string | null> {

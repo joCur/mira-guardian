@@ -7,7 +7,7 @@ import type { ChangeWithVotes } from "@guardian/shared";
 function change(id: string = "c1"): ChangeWithVotes {
   return { id, repo: "r", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
     commitId: "abc1234", commitShort: "abc1234", authorName: "Anna", authorEmail: "a@x.de", committedAt: "t",
-    summary: "s", oldMd: "Node 20", newMd: "Node 22", cycleId: "cy", firstSeenAt: "t",
+    summary: "s", oldMd: "Node 20", newMd: "Node 22", previousPath: null, cycleId: "cy", firstSeenAt: "t",
     votes: [{ changeId: id, guardianId: "g1", status: "offen", comment: null, updatedAt: "t" }],
     adoLink: "http://x" };
 }
@@ -40,6 +40,23 @@ describe("ChangesTab vote flow", () => {
     expect(save).toHaveProperty("disabled", false);
     await userEvent.click(save);
     expect(onVote).toHaveBeenCalledWith("c1", "abgelehnt", "nein!");
+  });
+
+  // Ohne eigene Bewertungszeile war die Fußleiste leer und man konnte nichts
+  // anklicken. Keine Zeile bedeutet fachlich "noch nicht bewertet".
+  it("still offers the vote buttons when no vote row exists for me", async () => {
+    const onVote = vi.fn();
+    const ohneMich = { ...change(), votes: [] };
+    render(<ChangesTab toRate={[ohneMich]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
+    await userEvent.click(screen.getByRole("button", { name: /Akzeptiert/ }));
+    expect(onVote).toHaveBeenCalledWith("c1", "akzeptiert", "");
+  });
+
+  it("shows the move badge and the old path in the header", () => {
+    const verschoben = { ...change(), changeKind: "rename" as const,
+      filePath: "apps/mira-desktop/docs/decisions/adr.md", previousPath: "docs/decisions/adr.md" };
+    render(<ChangesTab toRate={[verschoben]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.getByText("VERSCHOBEN")).toBeTruthy();
   });
 
   it("clears draft when selected change changes externally", async () => {

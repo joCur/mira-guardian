@@ -8,7 +8,7 @@ function change(over: Partial<Change>): Change {
     id: "c1", repo: "R", branch: "main", filePath: "docs/decisions/a.md", changeKind: "add",
     commitId: "abc1234", commitShort: "abc1234", authorName: "A", authorEmail: "a@x.de",
     committedAt: "2026-07-20T10:00:00Z", summary: "s", oldMd: null, newMd: "x",
-    cycleId: "cy1", firstSeenAt: "2026-07-20T10:00:00Z", ...over,
+    previousPath: null, cycleId: "cy1", firstSeenAt: "2026-07-20T10:00:00Z", ...over,
   };
 }
 

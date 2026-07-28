@@ -26,6 +26,15 @@ async function bootstrap() {
 
   const changeService = new ChangeService(store);
   const authService = new AuthService(store, changeService, now);
+
+  // Bestand in Ordnung bringen, bevor Hüter danach greifen: Einträge ohne
+  // jeden Inhalt (früher die Quellseite jeder Verschiebung) sind nicht
+  // bewertbar, und fehlende Bewertungszeilen machen die Fußleiste im Widget
+  // unbenutzbar.
+  const purged = changeService.purgeContentlessChanges();
+  if (purged > 0) console.log(`▸ ${purged} Änderungen ohne Inhalt entfernt`);
+  const repaired = changeService.repairMissingVotes(now());
+  if (repaired > 0) console.log(`▸ ${repaired} fehlende Bewertungen nachgezogen`);
   const hub = new RealtimeHub();
   const ado = new AdoClient(config);
   const poller = new AdoPoller(config, store, changeService, ado, now,
