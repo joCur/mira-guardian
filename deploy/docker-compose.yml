@@ -1,0 +1,55 @@
+# Mira Guardian — Server-Betrieb aus dem veröffentlichten Container-Image.
+#
+# Für die lokale Entwicklung ist die docker-compose.yml im Repo-Wurzelverzeichnis
+# gedacht; die baut das Image aus dem Arbeitsstand. Diese Datei hier betreibt eine
+# feste Release-Version aus der GitHub Container Registry.
+#
+# Die SQLite-Datenbank liegt absichtlich als Bind-Mount unter ./data und nicht in
+# einem Docker-Volume: so ist sie im Dateisystem sichtbar, und ein Umzug auf einen
+# anderen Server ist ein Kopieren dieses Ordners (siehe README.md).
+
+name: mira-guardian
+
+services:
+  server:
+    # Version über GUARDIAN_VERSION in der .env — ein Update ist damit eine
+    # bewusste Änderung und kein Nebeneffekt eines Neustarts.
+    image: ghcr.io/jocur/mira-guardian-server:${GUARDIAN_VERSION:-0.1.5}
+    container_name: mira-guardian-server
+    restart: unless-stopped
+
+    # ADO-Zugang und Scan-Einstellungen kommen aus .env (Rechte 600).
+    env_file: .env
+
+    # Betriebspfade gehören zum Deployment und nicht in die .env.
+    environment:
+      DB_PATH: /data/guardian.sqlite
+      HTTP_PORT: "4000"
+
+    # Als aufrufender Host-Benutzer laufen, damit die Datenbankdateien unter
+    # ./data diesem Benutzer gehören und ohne root kopierbar sind. Werte per
+    # `id -u` und `id -g` ermitteln und in der .env setzen — sie unterscheiden
+    # sich je Server, gerade bei Konten aus dem Active Directory.
+    user: "${GUARDIAN_UID:-1000}:${GUARDIAN_GID:-1000}"
+
+    ports:
+      - "${GUARDIAN_PORT:-4000}:4000"
+
+    volumes:
+      - ./data:/data
+
+    healthcheck:
+      # Als CMD-SHELL in Anführungszeichen, weil der Ausdruck ":" und "?"
+      # enthält und YAML ihn sonst als Mapping liest.
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+    # Ohne Begrenzung wächst die Container-Logdatei unbegrenzt.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
