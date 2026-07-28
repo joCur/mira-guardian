@@ -3,6 +3,7 @@ import type { ChangeWithVotes, Guardian, VoteStatus } from "@guardian/shared";
 import { fileType, STATUS_LABELS } from "@guardian/shared";
 import { statusText, statusBorder, aggregateDot, typeBadge } from "../../theme.js";
 import { DiffView } from "../DiffView.js";
+import { moveLabel } from "../RenameNotice.js";
 import { EmptyState, ICON_SHIELD_CHECK } from "../EmptyState.js";
 
 interface Props {
@@ -36,6 +37,9 @@ export function ChangesTab(p: Props) {
   );
   const byId = new Map((p.guardians ?? []).map(g => [g.id, g]));
   const mine = sel.votes.find(v => v.guardianId === p.guardianId);
+  // Keine Bewertungszeile heißt fachlich "noch nicht bewertet". Sonst stünde
+  // eine leere Fußleiste da und die Änderung wäre nicht bewertbar.
+  const meineBewertungSteht = !mine || mine.status === "offen";
   const draftValid = !!draft && draft.comment.trim().length >= 5;
   const selDate = fmtDate(sel.committedAt);
 
@@ -74,6 +78,9 @@ export function ChangesTab(p: Props) {
             <span className="font-mono text-[15px] font-semibold text-ctp-text break-all">{sel.filePath}</span>
             <TypePill filePath={sel.filePath} size="md" />
             {sel.changeKind === "add" && <span className="text-[10px] font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1.5 py-0.5 shrink-0">NEUE DATEI</span>}
+            {sel.changeKind === "delete" && <span className="text-[10px] font-bold tracking-wide text-ctp-red bg-ctp-red/20 rounded px-1.5 py-0.5 shrink-0">GELÖSCHT</span>}
+            {sel.previousPath && <span className="text-[10px] font-bold tracking-wide text-ctp-blue bg-ctp-blue/20 rounded px-1.5 py-0.5 shrink-0">
+              {moveLabel(sel.previousPath, sel.filePath).toUpperCase()}</span>}
             <span className="font-mono text-[11px] text-ctp-subtext0 bg-ctp-surface0 border border-ctp-surface1 rounded px-1.5 py-0.5 shrink-0">{sel.commitShort}</span>
           </div>
           <div className="text-xs text-ctp-subtext0 mt-1">{sel.summary} · {sel.authorName}{selDate ? ` · ${selDate}` : ""}</div>
@@ -113,7 +120,7 @@ export function ChangesTab(p: Props) {
         </div>
 
         <div className="border-t border-ctp-surface0 bg-ctp-mantle px-5 py-3">
-          {mine?.status === "offen" && !draft && (
+          {meineBewertungSteht && !draft && (
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="text-xs text-ctp-subtext0 flex-1 whitespace-nowrap">Deine Bestätigung steht aus:</span>
               <button onClick={() => p.onVote(sel.id, "akzeptiert", "")}
@@ -124,7 +131,7 @@ export function ChangesTab(p: Props) {
                 className="rounded-lg px-4 py-2 text-[12.5px] font-semibold bg-ctp-red/20 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/25 transition-colors whitespace-nowrap">✕ Abgelehnt</button>
             </div>
           )}
-          {draft && mine?.status === "offen" && (
+          {draft && meineBewertungSteht && (
             <div>
               <div className={`text-xs font-semibold mb-1.5 ${statusText(draft.status)}`}>{STATUS_LABELS[draft.status]} — Kommentar erforderlich</div>
               <textarea value={draft.comment} onChange={e => setDraft({ ...draft, comment: e.target.value })}

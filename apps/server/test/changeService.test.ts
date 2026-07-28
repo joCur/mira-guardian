@@ -11,7 +11,7 @@ function change(id: string, path: string): Change {
   return { id, repo: "r", branch: "main", filePath: path, changeKind: "modify",
     commitId: id, commitShort: id, authorName: "A", authorEmail: "a@x.de",
     committedAt: "2026-07-19T10:00:00Z", summary: "s", oldMd: "old", newMd: "new",
-    cycleId: "cy1", firstSeenAt: "t" };
+    previousPath: null, cycleId: "cy1", firstSeenAt: "t" };
 }
 
 describe("ChangeService", () => {
@@ -71,5 +71,58 @@ describe("ChangeService", () => {
     svc.backfillVotesForGuardian("g4", "t");
     const statuses = s.listVotesByChange("c1").find(v => v.guardianId === "g4");
     expect(statuses?.status).toBe("offen");
+  });
+
+  // Selbstheilung beim Serverstart: Fehlt eine Bewertung, kann der Hüter im
+  // Widget nichts anklicken. Das passiert, sobald Änderungen eingelesen wurden,
+  // bevor es Hüter gab.
+  it("repairs missing votes for every guardian", () => {
+    s.upsertChange(change("c1", "memory-bank/a.md"));
+    s.upsertChange(change("c2", "memory-bank/b.md"));
+    vote("c1","g1","akzeptiert");
+    expect(svc.repairMissingVotes("t")).toBe(5); // 2 Änderungen x 3 Hüter - 1 vorhandene
+    for (const cid of ["c1","c2"]) {
+      expect(s.listVotesByChange(cid)).toHaveLength(3);
+    }
+    expect(s.listVotesByChange("c1").find(v => v.guardianId === "g1")?.status).toBe("akzeptiert"); // unangetastet
+    expect(svc.repairMissingVotes("t")).toBe(0); // idempotent
+  });
+});
+
+describe("ChangeService.purgeContentlessChanges", () => {
+  let s: Store, svc: ChangeService;
+  beforeEach(() => {
+    s = new Store(":memory:");
+    svc = new ChangeService(s);
+    s.insertCycle({ id: "cy1", isoWeek: "2026-W30", startsAt: "t", endsAt: null, closedAt: null, note: null });
+    s.insertGuardian(guardian("g1"));
+  });
+
+  // Altlast: die Quellseite einer Umbenennung wurde als Änderung ohne jeden
+  // Inhalt eingelesen. Solche Einträge tragen keine Information und blockieren
+  // nur die Liste.
+  it("removes contentless modify entries but keeps real ones", () => {
+    s.upsertChange({ ...change("ghost", "docs/decisions/0001-alt.md"), oldMd: null, newMd: null });
+    s.upsertChange({ ...change("leer", "docs/decisions/0002-alt.md"), oldMd: "", newMd: "" });
+    s.upsertChange({ ...change("echt", "memory-bank/a.md"), oldMd: null, newMd: "# Inhalt" });
+    s.upsertChange({ ...change("weg", "memory-bank/b.md"), changeKind: "delete", oldMd: null, newMd: null });
+
+    expect(svc.purgeContentlessChanges()).toBe(2);
+    expect(s.listAllChanges().map(c => c.id).sort()).toEqual(["echt", "weg"]);
+  });
+
+  // Bewertete Historie wird nicht angefasst, auch wenn der Eintrag leer ist.
+  it("keeps a contentless entry once somebody voted on it", () => {
+    s.upsertChange({ ...change("bewertet", "docs/decisions/0003-alt.md"), oldMd: null, newMd: null });
+    s.upsertVote({ changeId: "bewertet", guardianId: "g1", status: "klaerung", comment: "was ist das?", updatedAt: "t" });
+    expect(svc.purgeContentlessChanges()).toBe(0);
+    expect(s.getChange("bewertet")).toBeDefined();
+  });
+
+  it("drops the orphaned votes of a purged entry", () => {
+    s.upsertChange({ ...change("ghost", "docs/decisions/0004-alt.md"), oldMd: null, newMd: null });
+    s.upsertVote({ changeId: "ghost", guardianId: "g1", status: "offen", comment: null, updatedAt: "t" });
+    expect(svc.purgeContentlessChanges()).toBe(1);
+    expect(s.listVotesByChange("ghost")).toHaveLength(0);
   });
 });

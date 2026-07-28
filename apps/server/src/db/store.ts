@@ -13,6 +13,17 @@ export class Store {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.exec(readFileSync(join(__dir, "schema.sql"), "utf8"));
+    this.migrate();
+  }
+
+  // schema.sql legt nur an, was fehlt — bestehende Tabellen lässt es
+  // unangetastet. Neue Spalten müssen deshalb hier nachgezogen werden.
+  private migrate() {
+    const columns = (table: string) =>
+      (this.db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(c => c.name);
+    if (!columns("change_item").includes("previous_path")) {
+      this.db.exec("ALTER TABLE change_item ADD COLUMN previous_path TEXT");
+    }
   }
 
   getSetupState() {
@@ -87,15 +98,30 @@ export class Store {
   private mapChange = (r: any): Change => ({ id: r.id, repo: r.repo, branch: r.branch, filePath: r.file_path,
     changeKind: r.change_kind as ChangeKind, commitId: r.commit_id, commitShort: r.commit_short,
     authorName: r.author_name, authorEmail: r.author_email, committedAt: r.committed_at, summary: r.summary,
-    oldMd: r.old_md, newMd: r.new_md, cycleId: r.cycle_id, firstSeenAt: r.first_seen_at });
+    oldMd: r.old_md, newMd: r.new_md, previousPath: r.previous_path,
+    cycleId: r.cycle_id, firstSeenAt: r.first_seen_at });
   upsertChange(c: Change) {
+    // Zwei Wege, weil ein Eintrag über zwei Schlüssel identifiziert wird: über
+    // seine id (dann darf er auch den Pfad wechseln — beim Verschieben — und den
+    // Zyklus) und über (Zyklus, Pfad), wenn derselbe Pfad erneut eingelesen
+    // wird. SQLite kann nur ein Konfliktziel pro Statement behandeln.
+    const known = this.db.prepare("SELECT 1 FROM change_item WHERE id = ?").get(c.id);
+    if (known) {
+      this.db.prepare(`UPDATE change_item SET
+        repo=@repo, branch=@branch, file_path=@filePath, change_kind=@changeKind,
+        commit_id=@commitId, commit_short=@commitShort, author_name=@authorName,
+        author_email=@authorEmail, committed_at=@committedAt, summary=@summary,
+        old_md=@oldMd, new_md=@newMd, previous_path=@previousPath, cycle_id=@cycleId
+        WHERE id=@id`).run(c);
+      return;
+    }
     this.db.prepare(`INSERT INTO change_item
-      (id,repo,branch,file_path,change_kind,commit_id,commit_short,author_name,author_email,committed_at,summary,old_md,new_md,cycle_id,first_seen_at)
-      VALUES (@id,@repo,@branch,@filePath,@changeKind,@commitId,@commitShort,@authorName,@authorEmail,@committedAt,@summary,@oldMd,@newMd,@cycleId,@firstSeenAt)
+      (id,repo,branch,file_path,change_kind,commit_id,commit_short,author_name,author_email,committed_at,summary,old_md,new_md,previous_path,cycle_id,first_seen_at)
+      VALUES (@id,@repo,@branch,@filePath,@changeKind,@commitId,@commitShort,@authorName,@authorEmail,@committedAt,@summary,@oldMd,@newMd,@previousPath,@cycleId,@firstSeenAt)
       ON CONFLICT (cycle_id, file_path) DO UPDATE SET
         change_kind=excluded.change_kind, commit_id=excluded.commit_id, commit_short=excluded.commit_short,
         author_name=excluded.author_name, author_email=excluded.author_email, committed_at=excluded.committed_at,
-        summary=excluded.summary, new_md=excluded.new_md`).run(c);
+        summary=excluded.summary, new_md=excluded.new_md, previous_path=excluded.previous_path`).run(c);
   }
   getChange(id: string): Change | undefined {
     const r = this.db.prepare("SELECT * FROM change_item WHERE id = ?").get(id);
@@ -108,6 +134,13 @@ export class Store {
       "SELECT * FROM change_item WHERE repo = ? AND branch = ? AND file_path = ?",
     ).get(repo, branch, filePath);
     return r ? this.mapChange(r) : undefined;
+  }
+  // Samt Bewertungen — es gibt keine Fremdschlüssel, die das erledigen.
+  deleteChange(id: string) {
+    this.db.transaction(() => {
+      this.db.prepare("DELETE FROM vote WHERE change_id = ?").run(id);
+      this.db.prepare("DELETE FROM change_item WHERE id = ?").run(id);
+    })();
   }
   listAllChanges(): Change[] {
     return (this.db.prepare("SELECT * FROM change_item ORDER BY committed_at DESC").all() as any[]).map(this.mapChange);

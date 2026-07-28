@@ -34,6 +34,21 @@ describe("AuthService", () => {
     expect(svc.guardianForToken(r.deviceToken)?.id).toBe(r.guardian.id);
   });
 
+  // Der Poller läuft ab Serverstart, das Erst-Setup passiert später. Ohne
+  // Nachziehen hätte der Gründer zu den bereits eingelesenen Änderungen keine
+  // Bewertung — und könnte sie im Widget nie bewerten.
+  it("backfills votes for changes that were ingested before the founder existed", () => {
+    s.insertCycle({ id: "cy1", isoWeek: "2026-W31", startsAt: "t", endsAt: null, closedAt: null, note: null });
+    s.upsertChange({ id: "c1", repo: "r", branch: "main", filePath: "memory-bank/a.md",
+      changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
+      committedAt: "t", summary: "s", oldMd: null, newMd: "n", previousPath: null,
+      cycleId: "cy1", firstSeenAt: "t" });
+
+    const r = svc.initFounder("MB-INIT-7743", "Anna Roth", "anna@x.de");
+
+    expect(s.listVotesByChange("c1").find(v => v.guardianId === r.guardian.id)?.status).toBe("offen");
+  });
+
   it("rejects a wrong setup code", () => {
     expect(() => svc.initFounder("MB-INIT-0000", "X", "x@x.de")).toThrow(AuthError);
   });
@@ -44,7 +59,7 @@ describe("AuthService", () => {
     s.upsertChange({ id: "c1", repo: "r", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
       committedAt: "t", summary: "s", oldMd: "o", newMd: "n",
-      cycleId: s.getOpenCycle()!.id, firstSeenAt: "t" });
+      previousPath: null, cycleId: s.getOpenCycle()!.id, firstSeenAt: "t" });
     const { code } = svc.invite(founder.guardian.id, "Ben Keller", "ben@x.de");
     const r = svc.redeem(code);
     expect(r.guardian.name).toBe("Ben Keller");

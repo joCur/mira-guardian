@@ -93,10 +93,12 @@ invite_code     code (PK, "MB-XXXX"), name, email, created_by (guardian.id),
 setup_state     id (=1), setup_code, initialized_at (nullable)   -- einmaliger Erst-Setup-Code
 device          id (uuid, PK), guardian_id (FK), token (secret), label, last_seen_at
 
-change          id (uuid, PK), repo, branch, file_path, change_kind (add|modify|delete),
+change          id (uuid, PK), repo, branch, file_path,
+                change_kind (add|modify|delete|rename),  -- rename = nur Pfad, Inhalt gleich
                 commit_id, commit_short, author_name, author_email, committed_at,
                 summary,                       -- Commit-Subject
                 old_md (nullable), new_md (nullable),
+                previous_path (nullable),      -- Pfad vor Umbenennen/Verschieben
                 cycle_id (FK), first_seen_at
 vote            id (uuid, PK), change_id (FK), guardian_id (FK),
                 status (offen|akzeptiert|klaerung|abgelehnt), comment (nullable),

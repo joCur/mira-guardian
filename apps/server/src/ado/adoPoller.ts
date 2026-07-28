@@ -6,7 +6,7 @@ import type { ChangeService } from "../domain/changeService.js";
 import { ensureOpenCycle } from "../domain/cycles.js";
 import type { AdoClient, AdoCommit, AdoFileChange } from "./adoClient.js";
 
-const KIND: Record<string, ChangeKind> = { add: "add", edit: "modify", delete: "delete" };
+const KIND: Record<AdoFileChange["changeType"], ChangeKind> = { add: "add", edit: "modify", delete: "delete" };
 
 export class AdoPoller {
   constructor(
@@ -17,6 +17,18 @@ export class AdoPoller {
     private now: () => string,
     private onChange: (changeId: string, isNew: boolean) => void = () => {},
   ) {}
+
+  // Bei einer Umbenennung liefert ADO beide Seiten: die Quellseite trägt den
+  // alten Pfad, die Zielseite den neuen. Solange das Ziel in der Memory-Bank
+  // landet, ist die Quellseite kein eigenes Ereignis — sie hätte im Commit
+  // ohnehin keinen Inhalt mehr. Führt die Umbenennung dagegen aus den
+  // Scan-Pfaden heraus, ist das Dokument für die Hüter wirklich weg: dann
+  // bleibt die Quellseite als Löschung stehen.
+  private withoutRenameSources(fileChanges: AdoFileChange[]): AdoFileChange[] {
+    const movedWithin = new Set(
+      fileChanges.filter(fc => fc.previousPath && this.matches(fc.path)).map(fc => fc.previousPath!));
+    return fileChanges.filter(fc => !(fc.renameSource && movedWithin.has(fc.path)));
+  }
 
   private matches(path: string): boolean {
     // Memory-Bank-Levels: Scan-Pfade gelten auf jeder Ebene (Repo-Root und
@@ -51,7 +63,7 @@ export class AdoPoller {
     const matchedByCommit = new Map<string, AdoFileChange[]>();
     let hasMatch = false;
     for (const commit of ordered) {
-      const fileChanges = await this.ado.listCommitChanges(commit.commitId);
+      const fileChanges = this.withoutRenameSources(await this.ado.listCommitChanges(commit.commitId));
       // Idempotenz bei Re-Scans (Cursor-Rewind, Backfill): bereits eingelesene
       // Stände (gleiche Datei aus gleichem Commit) zählen nicht als Match —
       // sonst würde ein Re-Scan Votes resetten, Toasts auslösen oder einen
@@ -78,8 +90,14 @@ export class AdoPoller {
     for (const commit of ordered) {
       const fileChanges = matchedByCommit.get(commit.commitId) ?? [];
       for (const fc of fileChanges) {
-        const kind = KIND[fc.changeType] ?? "modify";
-        const existing = this.store.getChangeByPath(repo, branch, fc.path);
+        // Reines Umbenennen/Verschieben ist eine eigene Art von Änderung: es
+        // gibt keinen Inhaltsdiff, aber es muss bestätigt werden können.
+        const kind: ChangeKind = fc.previousPath && fc.contentUnchanged ? "rename" : KIND[fc.changeType];
+        // Beim Verschieben wandert der bestehende Eintrag mit — gleiche
+        // Identität, neuer Pfad. Sonst stünde dieselbe Datei doppelt in der
+        // Liste, einmal unter dem alten und einmal unter dem neuen Pfad.
+        const existing = (fc.previousPath ? this.store.getChangeByPath(repo, branch, fc.previousPath) : undefined)
+          ?? this.store.getChangeByPath(repo, branch, fc.path);
         const newMd = kind === "delete" ? null : await this.ado.getItemContent(fc.path, commit.commitId);
         let oldMd: string | null = existing ? existing.oldMd : null;
         if (!existing && kind !== "add") {
@@ -92,7 +110,8 @@ export class AdoPoller {
           commitId: commit.commitId, commitShort: commit.commitId.slice(0, 7),
           authorName: commit.author.name, authorEmail: commit.author.email, committedAt: commit.author.date,
           summary: (commit.comment || "").split("\n")[0].trim(),
-          oldMd, newMd, cycleId: cycle.id, firstSeenAt: existing?.firstSeenAt ?? this.now(),
+          oldMd, newMd, previousPath: fc.previousPath ?? null,
+          cycleId: cycle.id, firstSeenAt: existing?.firstSeenAt ?? this.now(),
         };
         this.store.upsertChange(change);
         if (existing) this.store.resetVotesForChange(change.id, this.now());

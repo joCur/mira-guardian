@@ -29,6 +29,10 @@ export class AuthService {
     this.store.insertGuardian(guardian);
     this.store.setInitialized(this.now());
     ensureOpenCycle(this.store, this.now);
+    // Der Poller läuft ab Serverstart, das Erst-Setup passiert später. Was
+    // vorher hereinkam, hat noch keine Bewertungszeile — ohne Nachziehen könnte
+    // der Gründer diese Änderungen nie bewerten.
+    this.changes.backfillVotesForGuardian(guardian.id, this.now());
     return { deviceToken: this.issueDevice(guardian.id), guardian };
   }
 

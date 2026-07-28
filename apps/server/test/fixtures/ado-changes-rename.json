@@ -1,0 +1,20 @@
+{ "changes": [
+  { "item": { "path": "/docs", "isFolder": true, "gitObjectType": "tree" }, "changeType": "edit" },
+  { "item": { "objectId": "aaa", "originalObjectId": "aaa", "gitObjectType": "blob",
+              "path": "/docs/decisions/0001-electron-react-stack.md" },
+    "changeType": "delete, sourceRename" },
+  { "item": { "objectId": "aaa", "originalObjectId": "aaa", "gitObjectType": "blob",
+              "path": "/docs/decisions/2026-06-15-electron-react-stack.md" },
+    "sourceServerItem": "/docs/decisions/0001-electron-react-stack.md",
+    "changeType": "rename" },
+  { "item": { "objectId": "ccc", "originalObjectId": "bbb", "gitObjectType": "blob",
+              "path": "/docs/decisions/2026-06-15-build-tooling.md" },
+    "sourceServerItem": "/docs/decisions/0002-build-tooling.md",
+    "changeType": "edit, rename" },
+  { "item": { "objectId": "bbb", "originalObjectId": "bbb", "gitObjectType": "blob",
+              "path": "/docs/decisions/0002-build-tooling.md" },
+    "changeType": "delete, sourceRename" },
+  { "item": { "objectId": "ddd", "originalObjectId": "ddd", "gitObjectType": "blob",
+              "path": "/docs/decisions/0099-aufgeloest.md" },
+    "changeType": "delete" }
+]}
