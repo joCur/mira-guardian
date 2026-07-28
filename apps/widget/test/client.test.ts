@@ -16,6 +16,20 @@ describe("ApiClient", () => {
     expect(seen).toBe("Bearer tok");
     expect(r.badge).toBe(0);
   });
+  // /health braucht keinen Zugang und ist die Quelle für die Server-Version.
+  it("reads the server version from health", async () => {
+    let url = "";
+    const c = new ApiClient("http://s", "tok", fake(200, { ok: true, version: "0.1.9" }, (u) => { url = u; }));
+    expect(await c.getServerVersion()).toBe("0.1.9");
+    expect(url).toBe("http://s/health");
+  });
+
+  // Ein älterer Server kennt das Feld noch nicht — das darf nichts auslösen.
+  it("returns null when health carries no version", async () => {
+    const c = new ApiClient("http://s", "tok", fake(200, { ok: true }));
+    expect(await c.getServerVersion()).toBeNull();
+  });
+
   it("throws ApiError on 400", async () => {
     const c = new ApiClient("http://s", "tok", fake(400, { error: "Kommentar erforderlich" }));
     await expect(c.vote("c1", "abgelehnt", "no")).rejects.toBeInstanceOf(ApiError);

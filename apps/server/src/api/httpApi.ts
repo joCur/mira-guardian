@@ -40,7 +40,9 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
     return { ...c, votes: store.listVotesByChange(id), adoLink: deepLink(config, c.commitId, c.filePath) };
   };
 
-  app.get("/health", async () => ({ ok: true }));
+  // Die Version gehört hierher und nicht hinter den Zugang: das Widget zeigt
+  // sie neben seiner eigenen, und Monitoring sieht mit, welcher Stand läuft.
+  app.get("/health", async () => ({ ok: true, version: config.version }));
 
   app.post("/auth/init", async (req, reply) => {
     const { setupCode, name, email } = req.body as any;

@@ -19,6 +19,17 @@ describe("config", () => {
     expect(cfg.httpPort).toBe(4000);
   });
 
+  // Die Version kommt beim Container-Bau herein. Ohne sie läuft ein lokaler
+  // Build — der soll als solcher erkennbar sein und nicht wie ein Release
+  // aussehen.
+  it("falls back to a recognisable dev version", () => {
+    expect(loadConfig({ ...base } as any).version).toBe("0.0.0-dev");
+  });
+
+  it("takes the version from the environment", () => {
+    expect(loadConfig({ ...base, GUARDIAN_VERSION: "0.1.9" } as any).version).toBe("0.1.9");
+  });
+
   it("throws when a required var is missing", () => {
     expect(() => loadConfig({ ADO_BASE_URL: "x" } as any)).toThrow();
   });

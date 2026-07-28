@@ -8,6 +8,7 @@ export interface ToastData {
 
 export interface GuardianBridge {
   getConfig(): Promise<{ token: string | null; serverUrl: string }>;
+  getAppVersion(): Promise<string>;
   setToken(token: string): Promise<void>;
   clearToken(): Promise<void>;
   setServerUrl(url: string): Promise<void>;
@@ -22,3 +23,8 @@ export interface GuardianBridge {
   openExternal(url: string): Promise<void>;
 }
 declare global { interface Window { guardian: GuardianBridge } }
+
+declare global {
+  /** Beim Bauen eingebackene Version der App (electron.vite.config.ts). */
+  const __APP_VERSION__: string;
+}
