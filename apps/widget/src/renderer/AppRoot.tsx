@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import type { Guardian } from "@guardian/shared";
-import { ApiClient } from "./api/client.js";
+import { ApiClient, type MeetingResponse, type HistoryEntry } from "./api/client.js";
 import { subscribe } from "./api/ws.js";
 import { catchUpChanges } from "./api/catchUp.js";
 import { createGuardianStore } from "./store.js";
@@ -22,18 +22,23 @@ export function AppRoot() {
 
   if (!cfg) return null;
   if (!cfg.token) {
-    return <SetupDialog api={new ApiClient(cfg.serverUrl, null)} onLinked={async (token) => {
-      await window.guardian.setToken(token);
-      setCfg(await window.guardian.getConfig());
-    }} />;
+    return <SetupDialog api={new ApiClient(cfg.serverUrl, null)} serverUrl={cfg.serverUrl}
+      onServerUrl={async (url) => { await window.guardian.setServerUrl(url); setCfg(await window.guardian.getConfig()); }}
+      onLinked={async (token) => {
+        await window.guardian.setToken(token);
+        setCfg(await window.guardian.getConfig());
+      }} />;
   }
   // Token present → linked app. `key={cfg.token}` remounts cleanly on a re-link.
-  return <LinkedApp key={cfg.token} serverUrl={cfg.serverUrl} token={cfg.token} />;
+  // key enthält die Server-URL, damit ein Adresswechsel Client und Store
+  // sauber neu aufbaut (neue Verbindung, frischer Stand).
+  return <LinkedApp key={`${cfg.token}@${cfg.serverUrl}`} serverUrl={cfg.serverUrl} token={cfg.token}
+    onServerUrl={async (url) => { await window.guardian.setServerUrl(url); setCfg(await window.guardian.getConfig()); }} />;
 }
 
 // Only mounted when a token exists, so api/store are always defined and every hook
 // (useMemo, useStore, useState, useEffect) is called unconditionally on every render.
-function LinkedApp({ serverUrl, token }: { serverUrl: string; token: string }) {
+function LinkedApp({ serverUrl, token, onServerUrl }: { serverUrl: string; token: string; onServerUrl: (url: string) => Promise<void> }) {
   const api = useMemo(() => new ApiClient(serverUrl, token), [serverUrl, token]);
   const store = useMemo(() => createGuardianStore(api), [api]);
   const state = useStore(store);
@@ -56,7 +61,7 @@ function LinkedApp({ serverUrl, token }: { serverUrl: string; token: string }) {
       if (!alive) return;
       const st = store.getState();
       const { toToast, watermark } = catchUpChanges(
-        [...st.active, ...st.accepted], meR.guardian.id, lastSeen, new Date().toISOString());
+        [...st.toRate, ...st.acceptedByMe], meR.guardian.id, lastSeen, new Date().toISOString());
       for (const c of toToast) {
         void window.guardian.showToast({
           changeId: c.id, filePath: c.filePath, summary: c.summary,
@@ -93,37 +98,32 @@ function LinkedApp({ serverUrl, token }: { serverUrl: string; token: string }) {
 
   return (
     <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}>
-      {tab === "changes" && <ChangesTab active={state.active} accepted={state.accepted} selectedId={state.selectedId}
+      {tab === "changes" && <ChangesTab toRate={state.toRate} acceptedByMe={state.acceptedByMe} selectedId={state.selectedId}
         guardianId={guardianId} guardians={guardians} onSelect={(id) => store.getState().select(id)}
         onVote={(id, s, c) => store.getState().castVote(id, s, c)} />}
-      {tab === "meeting" && <MeetingPanel api={api} guardians={guardians} onOpen={openChange} onClosed={() => store.getState().refresh()} />}
-      {tab === "history" && <HistoryPanel api={api} />}
-      {tab === "guardians" && <GuardiansPanel api={api} />}
+      {tab === "meeting" && <MeetingPanel api={api} guardians={guardians} onOpen={openChange} />}
+      {tab === "history" && <HistoryPanel api={api} onOpen={openChange} />}
+      {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onServerUrl={onServerUrl} />}
     </MainWindow>
   );
 }
 
-function MeetingPanel({ api, guardians, onOpen, onClosed }:
-  { api: ApiClient; guardians: Guardian[]; onOpen: (id: string) => void; onClosed: () => void }) {
-  const [m, setM] = useState<any>(null);
-  const load = () => api.getMeeting().then(setM);
-  useEffect(() => { load(); }, [api]);
-  const handleClose = async (note: string) => {
-    if (!m?.cycle) return;
-    await api.closeCycle(m.cycle.id, note.trim() || null);
-    await load();
-    onClosed();
-  };
-  return m ? <MeetingTab meeting={m} guardians={guardians} onOpen={onOpen} onClose={handleClose} /> : null;
+function MeetingPanel({ api, guardians, onOpen }:
+  { api: ApiClient; guardians: Guardian[]; onOpen: (id: string) => void }) {
+  const [m, setM] = useState<MeetingResponse | null>(null);
+  useEffect(() => { void api.getMeeting().then(setM).catch(() => {}); }, [api]);
+  return m ? <MeetingTab meeting={m} guardians={guardians} onOpen={onOpen} /> : null;
 }
-function HistoryPanel({ api }: { api: ApiClient }) {
-  const [c, setC] = useState<any>(null);
-  useEffect(() => { api.getHistory().then(r => setC(r.cycles)); }, [api]);
-  return c ? <HistoryTab cycles={c} /> : null;
+function HistoryPanel({ api, onOpen }: { api: ApiClient; onOpen: (id: string) => void }) {
+  const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
+  useEffect(() => { void api.getMyHistory().then(r => setEntries(r.entries)).catch(() => {}); }, [api]);
+  return entries ? <HistoryTab entries={entries} onOpen={onOpen} /> : null;
 }
-function GuardiansPanel({ api }: { api: ApiClient }) {
+function GuardiansPanel({ api, serverUrl, onServerUrl }:
+  { api: ApiClient; serverUrl: string; onServerUrl: (url: string) => Promise<void> }) {
   const [d, setD] = useState<any>(null);
   const load = () => api.getGuardians().then(setD);
   useEffect(() => { load(); }, [api]);
-  return d ? <GuardiansTab guardians={d.guardians} pending={d.pending} onInvite={(n, e) => api.invite(n, e).then(load)} /> : null;
+  return d ? <GuardiansTab guardians={d.guardians} pending={d.pending} serverUrl={serverUrl}
+    onServerUrl={onServerUrl} onInvite={(n, e) => api.invite(n, e).then(load)} /> : null;
 }

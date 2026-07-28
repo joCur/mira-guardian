@@ -1,11 +1,16 @@
-import type { ChangeWithVotes, Guardian, Cycle, VoteStatus } from "@guardian/shared";
+import type { ChangeWithVotes, Guardian, VoteStatus } from "@guardian/shared";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-export interface ChangesResponse { cycle: Cycle | null; active: ChangeWithVotes[]; accepted: ChangeWithVotes[]; badge: number }
-export interface MeetingResponse { cycle: Cycle | null; rejected: ChangeWithVotes[]; klaerung: ChangeWithVotes[]; accepted: ChangeWithVotes[]; outstanding: number }
+export interface ChangesResponse { toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; badge: number }
+export interface MeetingCounts { abgelehnt: number; klaerung: number; offen: number; gesamt: number }
+export interface MeetingResponse { changes: ChangeWithVotes[]; counts: MeetingCounts }
+export interface HistoryEntry {
+  changeId: string; status: VoteStatus; comment: string | null; updatedAt: string;
+  filePath: string; commitShort: string; summary: string;
+}
 export interface AuthResponse { deviceToken: string; guardian: Guardian }
 
 export class ApiClient {
@@ -38,7 +43,6 @@ export class ApiClient {
   getGuardians() { return this.req<{ guardians: Guardian[]; pending: { code: string; name: string; email: string }[] }>("GET", "/guardians"); }
   invite(name: string, email: string) { return this.req<{ code: string }>("POST", "/guardians/invite", { name, email }); }
   getMeeting() { return this.req<MeetingResponse>("GET", "/meeting"); }
-  closeCycle(id: string, note: string | null) { return this.req<{ ok: true }>("POST", `/cycles/${id}/close`, { note }); }
-  getHistory() { return this.req<{ cycles: Cycle[] }>("GET", "/history"); }
+  getMyHistory() { return this.req<{ entries: HistoryEntry[] }>("GET", "/me/history"); }
   getMe() { return this.req<{ guardian: Guardian }>("GET", "/me"); }
 }

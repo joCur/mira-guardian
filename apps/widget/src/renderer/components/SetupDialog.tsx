@@ -14,21 +14,47 @@ function LogoTitle({ title }: { title: string }) {
   );
 }
 
-export function SetupDialog({ api, onLinked }: { api: ApiClient; onLinked: (token: string, g: Guardian) => void }) {
+// Server-Adresse säubern: trimmen, abschließenden / entfernen. Gibt null
+// zurück, wenn es keine http(s)-URL ist.
+export function normalizeServerUrl(raw: string): string | null {
+  const v = raw.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\/\S+$/i.test(v)) return null;
+  return v;
+}
+
+export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
+  { api: ApiClient; serverUrl: string; onServerUrl: (url: string) => Promise<void>;
+    onLinked: (token: string, g: Guardian) => void }) {
   const [mode, setMode] = useState<"code" | "init">("code");
+  const [url, setUrl] = useState(serverUrl);
   const [code, setCode] = useState("");
   const [initCode, setInitCode] = useState(""), [name, setName] = useState(""), [email, setEmail] = useState("");
   const [error, setError] = useState("");
 
+  // Die eingegebene Adresse wird vor dem Verbinden gespeichert — der
+  // ApiClient wird von AppRoot mit ihr neu aufgebaut.
+  async function applyUrl(): Promise<boolean> {
+    const clean = normalizeServerUrl(url);
+    if (!clean) { setError("Server-Adresse muss mit http:// oder https:// beginnen."); return false; }
+    if (clean !== serverUrl) { await onServerUrl(clean); return false; }
+    return true;
+  }
+  const connectHint = (e: Error) =>
+    /fetch|network|failed/i.test(e.message)
+      ? `${e.message} — erreichbar unter ${serverUrl}?`
+      : e.message;
+
   async function redeem() {
     setError("");
+    if (!(await applyUrl())) return;
     try { const r = await api.redeem(code.trim().toUpperCase()); onLinked(r.deviceToken, r.guardian); }
-    catch (e) { setError((e as Error).message); }
+    catch (e) { setError(connectHint(e as Error)); }
   }
   async function init() {
     setError("");
+    if (!(await applyUrl())) return;
     try { const r = await api.init(initCode.trim(), name.trim(), email.trim()); onLinked(r.deviceToken, r.guardian); }
-    catch (e) { setError((e as Error).message); }
+    catch (e) { setError(connectHint(e as Error)); }
   }
 
   return (
@@ -45,6 +71,9 @@ export function SetupDialog({ api, onLinked }: { api: ApiClient; onLinked: (toke
               </p>
             </div>
             <div className="px-[22px] pb-[18px] pt-1 flex flex-col gap-2">
+              <label className="text-[10px] tracking-[0.08em] font-semibold uppercase text-ctp-subtext0">Server-Adresse</label>
+              <input value={url} onChange={e => setUrl(e.target.value)} placeholder="http://localhost:4000"
+                aria-label="Server-Adresse" className={inputCls} />
               <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="MB-XXXX"
                 className={`${inputCls} text-[17px] tracking-[0.2em] text-center font-mono p-3`} />
               {error && <div className="text-xs text-ctp-red text-center">{error}</div>}

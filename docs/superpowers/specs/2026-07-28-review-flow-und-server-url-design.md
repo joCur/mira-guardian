@@ -21,6 +21,17 @@ Vier Punkte aus dem Praxistest:
 4. **Kein Weiterspringen.** Nach einer Bewertung bleibt die App auf derselben
    Änderung stehen; die nächste muss von Hand gewählt werden.
 
+> **Nachtrag nach Abstimmung (28.07.2026):** Der Wochen-Zyklus wird als
+> Produktkonzept vollständig aufgegeben — nicht nur aus den Listen gelöst.
+> Damit ändert sich die Identität einer Änderung: **ein Eintrag je
+> Repo/Branch/Dateipfad** statt je Zyklus. Ein neuer Commit auf dieselbe
+> Datei aktualisiert den Eintrag und setzt die Bewertungen zurück (wie
+> bisher beim Re-Review). Ohne diese Umstellung würde dieselbe Datei aus
+> zwei Wochen doppelt in der Liste stehen. Die Tabelle `cycle` und die
+> Spalte `cycle_id` bleiben vorerst bestehen (weiter befüllt, nirgends
+> gelesen) — eine Migration der bestehenden 145 Einträge wäre reines
+> Risiko ohne Nutzen und kann später folgen.
+
 ## Kernentscheidung: Listen lösen sich vom Wochen-Zyklus
 
 Heute hängen alle Listen am offenen Zyklus (`getOpenCycle()`). Eine nicht
@@ -56,7 +67,11 @@ Abschnitten — nachlesbar bleiben sie im persönlichen Verlauf.
 Eine von mir abgelehnte Änderung bleibt bewusst unter „Zu bewerten": Sie ist
 unerledigt und gehört ins Meeting.
 
-### Hüter-Übersicht — die Meeting-Liste
+### Offene Punkte — die Team-Liste
+
+Der Tab hieß „Meeting-Übersicht"; ohne Wochen-Meeting trägt der Name nicht
+mehr. Neuer Name: **Offene Punkte** (auch als Überschrift), klar abgegrenzt
+vom bestehenden Tab „Hüter" für die Nutzerverwaltung.
 
 Zeigt **alle Änderungen, die nicht von allen akzeptiert sind**, damit das Team
 sie gemeinsam durchgehen kann. Sortierung worst-first: abgelehnt →

@@ -59,13 +59,11 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
     secured.get("/me", async (req) => ({ guardian: req.guardian }));
 
     secured.get("/changes", async (req) => {
-      const cycle = store.getOpenCycle();
-      if (!cycle) return { cycle: null, active: [], accepted: [], badge: 0 };
+      const me = req.guardian!.id;
       return {
-        cycle,
-        active: changeService.activeChanges(cycle.id).map(c => withVotes(c.id)!),
-        accepted: changeService.acceptedChanges(cycle.id).map(c => withVotes(c.id)!),
-        badge: changeService.badgeCount(cycle.id, req.guardian!.id),
+        toRate: changeService.toRate(me).map(c => withVotes(c.id)!),
+        acceptedByMe: changeService.acceptedByMe(me).map(c => withVotes(c.id)!),
+        badge: changeService.badgeCount(me),
       };
     });
 
@@ -96,26 +94,19 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
       catch (e) { if (e instanceof AuthError) return reply.code(400).send({ error: e.message }); throw e; }
     });
 
-    secured.get("/meeting", async () => {
-      const cycle = store.getOpenCycle();
-      if (!cycle) return { cycle: null, rejected: [], klaerung: [], accepted: [], outstanding: 0 };
-      const g = changeService.meetingGroups(cycle.id);
-      return {
-        cycle,
-        rejected: g.rejected.map(c => withVotes(c.id)!),
-        klaerung: g.klaerung.map(c => withVotes(c.id)!),
-        accepted: g.accepted.map(c => withVotes(c.id)!),
-        outstanding: g.outstanding,
-      };
-    });
+    // Hüter-Übersicht: alles, was das Team noch gemeinsam durchgehen muss.
+    secured.get("/meeting", async () => ({
+      changes: changeService.openChanges().map(c => withVotes(c.id)!),
+      counts: changeService.meetingCounts(),
+    }));
 
-    secured.post("/cycles/:id/close", async (req) => {
-      const { note } = (req.body as any) ?? {};
-      store.closeCycle((req.params as any).id, now(), note ?? null);
-      return { ok: true };
-    });
-
-    secured.get("/history", async () => ({ cycles: store.listCycles().filter(c => c.closedAt) }));
+    // Persönlicher Bewertungsverlauf.
+    secured.get("/me/history", async (req) => ({
+      entries: store.listVotesByGuardian(req.guardian!.id).map(e => ({
+        changeId: e.changeId, status: e.status, comment: e.comment, updatedAt: e.updatedAt,
+        filePath: e.change.filePath, commitShort: e.change.commitShort, summary: e.change.summary,
+      })),
+    }));
   });
 
   return app;

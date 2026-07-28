@@ -2,7 +2,7 @@ import React from "react";
 
 export type Tab = "changes" | "meeting" | "history" | "guardians";
 const TABS: { id: Tab; label: string }[] = [
-  { id: "changes", label: "Änderungen" }, { id: "meeting", label: "Meeting-Übersicht" },
+  { id: "changes", label: "Änderungen" }, { id: "meeting", label: "Offene Punkte" },
   { id: "history", label: "Verlauf" }, { id: "guardians", label: "Hüter" },
 ];
 

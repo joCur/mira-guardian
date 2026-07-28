@@ -43,12 +43,13 @@ describe("HTTP API", () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it("init then list changes (empty active) with badge 0", async () => {
+  it("init then list changes (both lists empty) with badge 0", async () => {
     const token = await initFounder();
     const res = await ctx.app.inject({ method: "GET", url: "/changes", headers: { authorization: `Bearer ${token}` } });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body.active).toEqual([]);
+    expect(body.toRate).toEqual([]);
+    expect(body.acceptedByMe).toEqual([]);
     expect(body.badge).toBe(0);
   });
 

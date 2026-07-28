@@ -1,12 +1,14 @@
 import { createStore } from "zustand/vanilla";
-import type { Cycle, ChangeWithVotes, VoteStatus } from "@guardian/shared";
+import type { ChangeWithVotes, VoteStatus } from "@guardian/shared";
 import type { ApiClient } from "./api/client.js";
 import type { HubEvent } from "./api/ws.js";
+import { nextSelection } from "./nextSelection.js";
 
 export interface GuardianState {
-  cycle: Cycle | null;
-  active: ChangeWithVotes[];
-  accepted: ChangeWithVotes[];
+  /** Noch nicht von mir akzeptiert — meine Arbeitsliste. */
+  toRate: ChangeWithVotes[];
+  /** Von mir akzeptiert, wartet auf die übrigen Hüter. */
+  acceptedByMe: ChangeWithVotes[];
   badge: number;
   selectedId: string | null;
   refresh: () => Promise<void>;
@@ -17,24 +19,31 @@ export interface GuardianState {
 
 export function createGuardianStore(api: ApiClient) {
   return createStore<GuardianState>((set, get) => ({
-    cycle: null, active: [], accepted: [], badge: 0, selectedId: null,
+    toRate: [], acceptedByMe: [], badge: 0, selectedId: null,
 
     async refresh() {
       const r = await api.getChanges();
       const sel = get().selectedId;
-      const stillValid = sel && [...r.active, ...r.accepted].some(c => c.id === sel);
-      set({ cycle: r.cycle, active: r.active, accepted: r.accepted, badge: r.badge,
-        selectedId: stillValid ? sel : (r.active[0]?.id ?? r.accepted[0]?.id ?? null) });
+      const stillValid = sel && [...r.toRate, ...r.acceptedByMe].some(c => c.id === sel);
+      set({
+        toRate: r.toRate, acceptedByMe: r.acceptedByMe, badge: r.badge,
+        selectedId: stillValid ? sel : (r.toRate[0]?.id ?? r.acceptedByMe[0]?.id ?? null),
+      });
     },
     select(id) { set({ selectedId: id }); },
+
     async castVote(id, status, comment) {
-      const updated = await api.vote(id, status, comment);
-      set(s => ({
-        active: s.active.map(c => c.id === id ? updated : c),
-        accepted: s.accepted.map(c => c.id === id ? updated : c),
-      }));
-      await get().refresh();
+      const before = get().toRate;
+      await api.vote(id, status, comment);
+      const r = await api.getChanges();
+      // Auswahl weiterrücken, bevor der neue Stand die Liste ersetzt.
+      const next = nextSelection(before, id, r.toRate);
+      set({
+        toRate: r.toRate, acceptedByMe: r.acceptedByMe, badge: r.badge,
+        selectedId: next ?? r.acceptedByMe[0]?.id ?? null,
+      });
     },
+
     onWsEvent() {
       void get().refresh();
     },

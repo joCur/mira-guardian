@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { Guardian } from "@guardian/shared";
+import { normalizeServerUrl } from "../SetupDialog.js";
 
 interface Props {
   guardians: Guardian[];
@@ -10,9 +11,17 @@ interface Props {
 const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).map(p => p[0]!.toUpperCase()).slice(0, 2).join("");
 
-export function GuardiansTab({ guardians, pending, onInvite }: Props) {
+export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onServerUrl }:
+  Props & { serverUrl: string; onServerUrl: (url: string) => Promise<void> }) {
   const [name, setName] = useState(""), [email, setEmail] = useState("");
+  const [url, setUrl] = useState(serverUrl), [urlError, setUrlError] = useState("");
   const valid = !!name.trim() && email.includes("@");
+  const saveUrl = async () => {
+    const clean = normalizeServerUrl(url);
+    if (!clean) { setUrlError("Muss mit http:// oder https:// beginnen."); return; }
+    setUrlError("");
+    await onServerUrl(clean);
+  };
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[640px] mx-auto">
@@ -53,6 +62,19 @@ export function GuardiansTab({ guardians, pending, onInvite }: Props) {
               className="rounded-lg px-[18px] py-2 text-[12.5px] font-semibold whitespace-nowrap transition-colors bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 disabled:bg-ctp-surface0/40 disabled:text-ctp-overlay0 disabled:border-ctp-surface0 disabled:cursor-not-allowed">Zugangscode erzeugen</button>
           </div>
           <div className="text-[11px] text-ctp-overlay0 mt-2 leading-normal">Erzeugt einen einmaligen Zugangscode. Der neue Hüter gibt ihn beim ersten Start ein — erst danach zählt seine Bestätigung bei Änderungen.</div>
+        </div>
+
+        <div className="mt-[22px] bg-ctp-mantle border border-ctp-surface0 rounded-[10px] px-[18px] py-4">
+          <div className="text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold mb-2.5">VERBINDUNG</div>
+          <div className="flex gap-2 flex-wrap">
+            <input value={url} onChange={e => setUrl(e.target.value)} aria-label="Server-Adresse"
+              placeholder="http://localhost:4000"
+              className="flex-1 min-w-[220px] font-mono bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-[12.5px] text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2 outline-none" />
+            <button disabled={url.trim() === serverUrl} onClick={saveUrl}
+              className="rounded-lg px-[18px] py-2 text-[12.5px] font-semibold whitespace-nowrap transition-colors bg-ctp-surface0 text-ctp-text border border-ctp-surface1 hover:bg-ctp-surface1 disabled:text-ctp-overlay0 disabled:cursor-not-allowed">Speichern</button>
+          </div>
+          {urlError && <div className="text-[11px] text-ctp-red mt-1.5">{urlError}</div>}
+          <div className="text-[11px] text-ctp-overlay0 mt-2 leading-normal">Adresse des Guardian-Servers. Nach dem Speichern verbindet sich die App neu — dein Zugang bleibt erhalten.</div>
         </div>
       </div>
     </div>

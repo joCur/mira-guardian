@@ -6,7 +6,7 @@ import { DiffView } from "../DiffView.js";
 import { EmptyState, ICON_SHIELD_CHECK } from "../EmptyState.js";
 
 interface Props {
-  active: ChangeWithVotes[]; accepted: ChangeWithVotes[]; selectedId: string | null;
+  toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; selectedId: string | null;
   guardianId: string; guardians?: Guardian[]; onSelect: (id: string) => void;
   onVote: (id: string, status: VoteStatus, comment: string) => void;
 }
@@ -24,7 +24,7 @@ function TypePill({ filePath, size }: { filePath: string; size: "sm" | "md" }) {
 }
 
 export function ChangesTab(p: Props) {
-  const sel = [...p.active, ...p.accepted].find(c => c.id === p.selectedId) ?? p.active[0] ?? p.accepted[0];
+  const sel = [...p.toRate, ...p.acceptedByMe].find(c => c.id === p.selectedId) ?? p.toRate[0] ?? p.acceptedByMe[0];
   const [draft, setDraft] = useState<{ status: VoteStatus; comment: string } | null>(null);
   useEffect(() => { setDraft(null); }, [p.selectedId]);
 
@@ -42,8 +42,8 @@ export function ChangesTab(p: Props) {
   return (
     <div className="flex-1 flex min-h-0">
       <div className="w-[264px] border-r border-ctp-surface0 overflow-y-auto shrink-0">
-        <div className="px-3.5 pt-3 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">DIESE WOCHE</div>
-        {p.active.map(c => (
+        <div className="px-3.5 pt-3 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">ZU BEWERTEN</div>
+        {p.toRate.map(c => (
           <div key={c.id} onClick={() => { p.onSelect(c.id); setDraft(null); }}
             className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
               c.id === sel.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
@@ -55,8 +55,8 @@ export function ChangesTab(p: Props) {
             <div className="text-[11px] text-ctp-subtext0 truncate mt-0.5 ml-[15px]">{c.summary}</div>
           </div>
         ))}
-        {p.accepted.length > 0 && <div className="px-3.5 pt-3.5 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">VON ALLEN BESTÄTIGT</div>}
-        {p.accepted.map(c => (
+        {p.acceptedByMe.length > 0 && <div className="px-3.5 pt-3.5 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">VON MIR AKZEPTIERT</div>}
+        {p.acceptedByMe.map(c => (
           <div key={c.id} onClick={() => { p.onSelect(c.id); setDraft(null); }}
             className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
               c.id === sel.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>

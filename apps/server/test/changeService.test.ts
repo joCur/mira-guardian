@@ -33,15 +33,17 @@ describe("ChangeService", () => {
     ["g1","g2","g3"].forEach(g => vote("c1", g, "akzeptiert"));
     vote("c2", "g1", "akzeptiert"); vote("c2", "g2", "offen"); vote("c2", "g3", "akzeptiert");
     expect(svc.allAccepted("c1")).toBe(true);
-    expect(svc.acceptedChanges("cy1").map(c => c.id)).toEqual(["c1"]);
-    expect(svc.activeChanges("cy1").map(c => c.id)).toEqual(["c2"]);
+    // Von allen akzeptiert → aus allen Arbeitslisten verschwunden.
+    expect(svc.openChanges().map(c => c.id)).toEqual(["c2"]);
+    expect(svc.acceptedByMe("g1").map(c => c.id)).toEqual(["c2"]);
+    expect(svc.toRate("g2").map(c => c.id)).toEqual(["c2"]);
   });
 
   it("counts a guardian's pending badge", () => {
     s.upsertChange(change("c1", "memory-bank/a.md"));
     s.upsertChange(change("c2", "memory-bank/b.md"));
     vote("c1","g1","offen"); vote("c2","g1","akzeptiert");
-    expect(svc.badgeCount("cy1", "g1")).toBe(1);
+    expect(svc.badgeCount("g1")).toBe(1);
   });
 
   it("computes worst stripe status", () => {
@@ -50,18 +52,16 @@ describe("ChangeService", () => {
     expect(svc.stripeStatus("c1")).toBe("abgelehnt");
   });
 
-  it("groups the meeting: rejected before klaerung, accepted separate", () => {
+  it("meeting list: rejected before klaerung, fully accepted omitted", () => {
     s.upsertChange(change("c1", "memory-bank/a.md"));
     s.upsertChange(change("c2", "memory-bank/b.md"));
     s.upsertChange(change("c3", "memory-bank/c.md"));
     vote("c1","g1","abgelehnt","no"); vote("c1","g2","akzeptiert"); vote("c1","g3","offen");
     vote("c2","g1","klaerung","q"); vote("c2","g2","akzeptiert"); vote("c2","g3","akzeptiert");
     ["g1","g2","g3"].forEach(g => vote("c3", g, "akzeptiert"));
-    const m = svc.meetingGroups("cy1");
-    expect(m.rejected.map(c=>c.id)).toEqual(["c1"]);
-    expect(m.klaerung.map(c=>c.id)).toEqual(["c2"]);
-    expect(m.accepted.map(c=>c.id)).toEqual(["c3"]);
-    expect(m.outstanding).toBe(1); // c1/g3 offen
+    // Hüter-Übersicht: alles Unerledigte worst-first, Akzeptiertes fehlt.
+    expect(svc.openChanges().map(c=>c.id)).toEqual(["c1","c2"]);
+    expect(svc.meetingCounts()).toEqual({ abgelehnt: 1, klaerung: 1, offen: 0, gesamt: 2 });
   });
 
   it("backfills offen votes for a new guardian", () => {

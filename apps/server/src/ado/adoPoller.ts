@@ -79,7 +79,7 @@ export class AdoPoller {
       const fileChanges = matchedByCommit.get(commit.commitId) ?? [];
       for (const fc of fileChanges) {
         const kind = KIND[fc.changeType] ?? "modify";
-        const existing = this.store.getChangeByPath(cycle.id, fc.path);
+        const existing = this.store.getChangeByPath(repo, branch, fc.path);
         const newMd = kind === "delete" ? null : await this.ado.getItemContent(fc.path, commit.commitId);
         let oldMd: string | null = existing ? existing.oldMd : null;
         if (!existing && kind !== "add") {

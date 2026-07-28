@@ -23,27 +23,39 @@ export class ChangeService {
     return "akzeptiert";
   }
 
-  activeChanges(cycleId: string): Change[] {
-    return this.store.listChangesByCycle(cycleId)
+  // Alles, was noch nicht von allen Hütern akzeptiert ist — zyklusfrei,
+  // damit Unerledigtes nicht mit dem Wochenwechsel aus dem Blick fällt.
+  // Sortierung worst-first: abgelehnt → Klärungsbedarf → ausstehend.
+  openChanges(): Change[] {
+    return this.store.listAllChanges()
       .filter(c => !this.allAccepted(c.id))
       .sort((a, b) => RANK[this.stripeStatus(b.id)] - RANK[this.stripeStatus(a.id)]);
   }
-  acceptedChanges(cycleId: string): Change[] {
-    return this.store.listChangesByCycle(cycleId).filter(c => this.allAccepted(c.id));
+
+  private myStatus(changeId: string, guardianId: string) {
+    return this.votes(changeId).find(v => v.guardianId === guardianId)?.status;
   }
 
-  badgeCount(cycleId: string, guardianId: string): number {
-    return this.store.listChangesByCycle(cycleId)
-      .filter(c => this.votes(c.id).find(v => v.guardianId === guardianId)?.status === "offen").length;
+  // Meine Arbeitsliste: alles Unerledigte, das ich noch nicht akzeptiert habe
+  // (auch von mir Abgelehntes — das bleibt offen, bis es geklärt ist).
+  toRate(guardianId: string): Change[] {
+    return this.openChanges().filter(c => this.myStatus(c.id, guardianId) !== "akzeptiert");
+  }
+  // Von mir akzeptiert, wartet noch auf andere Hüter.
+  acceptedByMe(guardianId: string): Change[] {
+    return this.openChanges().filter(c => this.myStatus(c.id, guardianId) === "akzeptiert");
   }
 
-  meetingGroups(cycleId: string) {
-    const active = this.activeChanges(cycleId);
-    const rejected = active.filter(c => this.votes(c.id).some(v => v.status === "abgelehnt"));
-    const klaerung = active.filter(c => !rejected.includes(c) && this.votes(c.id).some(v => v.status === "klaerung"));
-    const accepted = this.acceptedChanges(cycleId);
-    const outstanding = active.reduce((n, c) => n + this.votes(c.id).filter(v => v.status === "offen").length, 0);
-    return { rejected, klaerung, accepted, outstanding };
+  badgeCount(guardianId: string): number {
+    return this.store.listAllChanges()
+      .filter(c => !this.allAccepted(c.id) && this.myStatus(c.id, guardianId) === "offen").length;
+  }
+
+  // Zähler für die Hüter-Übersicht: wie viele Änderungen je schlechtestem Status.
+  meetingCounts() {
+    const open = this.openChanges();
+    const by = (s: VoteStatus) => open.filter(c => this.stripeStatus(c.id) === s).length;
+    return { abgelehnt: by("abgelehnt"), klaerung: by("klaerung"), offen: by("offen"), gesamt: open.length };
   }
 
   ensureVotesForChange(changeId: string, now: string) {
@@ -54,10 +66,10 @@ export class ChangeService {
       }
     }
   }
+  // Neuer Hüter: bekommt für alles noch Unerledigte eine offene Bewertung.
   backfillVotesForGuardian(guardianId: string, now: string) {
-    const cycle = this.store.getOpenCycle();
-    if (!cycle) return;
-    for (const c of this.store.listChangesByCycle(cycle.id)) {
+    for (const c of this.store.listAllChanges()) {
+      if (this.allAccepted(c.id)) continue;
       const has = this.votes(c.id).some(v => v.guardianId === guardianId);
       if (!has) this.store.upsertVote({ changeId: c.id, guardianId, status: "offen", comment: null, updatedAt: now });
     }

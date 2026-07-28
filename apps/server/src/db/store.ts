@@ -101,9 +101,26 @@ export class Store {
     const r = this.db.prepare("SELECT * FROM change_item WHERE id = ?").get(id);
     return r ? this.mapChange(r) : undefined;
   }
-  getChangeByPath(cycleId: string, filePath: string): Change | undefined {
-    const r = this.db.prepare("SELECT * FROM change_item WHERE cycle_id = ? AND file_path = ?").get(cycleId, filePath);
+  // Eine Änderung je Repo/Branch/Dateipfad — ohne Wochen-Zyklus ist der Pfad
+  // die Identität. Ein neuer Commit aktualisiert denselben Eintrag.
+  getChangeByPath(repo: string, branch: string, filePath: string): Change | undefined {
+    const r = this.db.prepare(
+      "SELECT * FROM change_item WHERE repo = ? AND branch = ? AND file_path = ?",
+    ).get(repo, branch, filePath);
     return r ? this.mapChange(r) : undefined;
+  }
+  listAllChanges(): Change[] {
+    return (this.db.prepare("SELECT * FROM change_item ORDER BY committed_at DESC").all() as any[]).map(this.mapChange);
+  }
+  // Bewertungsverlauf eines Hüters: nur abgegebene Bewertungen, neueste zuerst.
+  listVotesByGuardian(guardianId: string): Array<Vote & { change: Change }> {
+    const rows = this.db.prepare(`
+      SELECT v.*, c.id AS c_id FROM vote v
+      JOIN change_item c ON c.id = v.change_id
+      WHERE v.guardian_id = ? AND v.status != 'offen'
+      ORDER BY v.updated_at DESC
+    `).all(guardianId) as any[];
+    return rows.map(r => ({ ...this.mapVote(r), change: this.getChange(r.c_id)! }));
   }
   // Zyklusübergreifend: wurde dieser Stand (Datei aus diesem Commit) schon
   // einmal eingelesen? Grundlage für idempotente Re-Scans nach Cursor-Rewind.
