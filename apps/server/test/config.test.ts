@@ -27,7 +27,22 @@ describe("config", () => {
   });
 
   it("takes the version from the environment", () => {
-    expect(loadConfig({ ...base, GUARDIAN_VERSION: "0.1.9" } as any).version).toBe("0.1.9");
+    expect(loadConfig({ ...base, GUARDIAN_BUILD_VERSION: "0.1.9" } as any).version).toBe("0.1.9");
+  });
+
+  // GUARDIAN_VERSION gehört dem Deployment: deploy/docker-compose.yml wählt
+  // damit den Image-Tag, und über `env_file` landet derselbe Wert im Container.
+  // Stünde die gebaute Version unter diesem Namen, würde der Tag sie
+  // überschreiben — bei `GUARDIAN_VERSION=latest` hieße die Version "latest".
+  it("lässt sich vom Image-Tag des Deployments nicht überschreiben", () => {
+    const cfg = loadConfig({
+      ...base, GUARDIAN_VERSION: "latest", GUARDIAN_BUILD_VERSION: "0.1.10",
+    } as any);
+    expect(cfg.version).toBe("0.1.10");
+  });
+
+  it("bleibt bei der Dev-Version, wenn nur der Image-Tag gesetzt ist", () => {
+    expect(loadConfig({ ...base, GUARDIAN_VERSION: "latest" } as any).version).toBe("0.0.0-dev");
   });
 
   it("throws when a required var is missing", () => {

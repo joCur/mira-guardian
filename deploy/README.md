@@ -64,6 +64,19 @@ docker compose pull && docker compose up -d
 Die Datenbank bleibt liegen, das Schema wird beim Start migriert. Vor einem
 Sprung über mehrere Versionen vorher ein Backup ziehen.
 
+### Welche Version läuft gerade?
+
+Der Server sagt es selbst — der Tag aus der `.env` taugt dafür nicht, erst recht
+nicht bei `GUARDIAN_VERSION=latest`:
+
+```bash
+docker compose logs | grep "hört auf"     # guardian-server 0.1.11 hört auf :4000
+curl -s localhost:4000/health             # {"ok":true,"version":"0.1.11"}
+```
+
+Dieselbe Angabe steht im Widget im Hüter-Tab unter „Verbindung", neben der
+Version der App. Weichen beide voneinander ab, weist die App darauf hin.
+
 ## Backup und Umzug auf einen anderen Server
 
 Der Container **muss dafür gestoppt sein**: SQLite läuft im WAL-Modus, ein

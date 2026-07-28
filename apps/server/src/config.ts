@@ -19,7 +19,13 @@ const schema = z.object({
   // Kommt beim Container-Bau als Build-Argument herein. Der Standard ist
   // absichtlich als Nicht-Release erkennbar, damit ein lokaler Build im Log
   // nicht wie eine veröffentlichte Version aussieht.
-  GUARDIAN_VERSION: z.string().min(1).default("0.0.0-dev"),
+  //
+  // Nicht GUARDIAN_VERSION: der Name gehört dem Deployment, das damit den
+  // Image-Tag wählt (deploy/docker-compose.yml). Weil dieselbe .env über
+  // `env_file` auch in den Container geladen wird, würde dieser Wert die
+  // gebaute Version überschreiben — bei GUARDIAN_VERSION=latest hieße die
+  // Version dann "latest".
+  GUARDIAN_BUILD_VERSION: z.string().min(1).default("0.0.0-dev"),
 });
 
 export interface Config {
@@ -52,7 +58,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     backfillDays: e.BACKFILL_DAYS,
     scanPaths: e.SCAN_PATHS.split(",").map(s => s.trim()).filter(Boolean),
     typeRules,
-    dbPath: e.DB_PATH, httpPort: e.HTTP_PORT, version: e.GUARDIAN_VERSION,
+    dbPath: e.DB_PATH, httpPort: e.HTTP_PORT, version: e.GUARDIAN_BUILD_VERSION,
   };
 }
 
