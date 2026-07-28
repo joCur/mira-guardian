@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+*.sqlite
+.env
+*.sqlite-shm
+*.sqlite-wal
+.playwright-mcp/
+.claude/worktrees/

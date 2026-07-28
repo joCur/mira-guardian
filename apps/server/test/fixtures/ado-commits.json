@@ -1,0 +1,4 @@
+{ "count": 2, "value": [
+  { "commitId": "def456", "comment": "Neue Decision: Versionierung", "author": { "name": "Anna Roth", "email": "anna@x.de", "date": "2026-07-19T10:00:00Z" } },
+  { "commitId": "abc123", "comment": "Node 22 als Basis-Image", "author": { "name": "Anna Roth", "email": "anna@x.de", "date": "2026-07-15T09:00:00Z" } }
+]}
