@@ -122,6 +122,17 @@ Nach dem Speichern einer Bewertung wählt die App automatisch die nächste
   Folge (neuer Zugangscode nötig).
 - Validierung: nur `http(s)`-URLs, Leerzeichen werden getrimmt, ein
   abschließender `/` entfernt.
+- **Nachtrag nach Praxistest (28.07.2026):** Das Feld gehört in **beide**
+  Zweige des Dialogs. Es stand nur unter „Gerät verknüpfen"; beim Erst-Setup
+  („Instanz initialisieren") fehlte es, sodass der Gründungs-Hüter zwangsweise
+  gegen den vorbelegten `localhost` initialisierte und die Adresse nirgends
+  korrigieren konnte — mit einem Server auf einer anderen Maschine war das
+  Erst-Setup damit unmöglich. Zudem verbindet ein Klick jetzt direkt mit der
+  eingegebenen Adresse (`ApiClient.withBaseUrl`): vorher speicherte der erste
+  Klick sie nur und blieb ansonsten wirkungslos, weil der Client von `AppRoot`
+  erst beim nächsten Rendern nachzog — für den Bedienenden ein Knopf ohne
+  Reaktion. Fehlermeldungen nennen die eingegebene, nicht die gespeicherte
+  Adresse.
 
 ## Server-Änderungen
 

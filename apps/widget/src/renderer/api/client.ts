@@ -35,6 +35,11 @@ export class ApiClient {
     return data as T;
   }
 
+  // Gleicher Client, andere Adresse: der Setup-Dialog verbindet sich mit der
+  // gerade eingegebenen Adresse, noch bevor sie gespeichert und der Client von
+  // AppRoot neu aufgebaut ist.
+  withBaseUrl(baseUrl: string) { return new ApiClient(baseUrl, this.token, this.fetchFn); }
+
   init(setupCode: string, name: string, email: string) { return this.req<AuthResponse>("POST", "/auth/init", { setupCode, name, email }); }
   redeem(code: string) { return this.req<AuthResponse>("POST", "/auth/redeem", { code }); }
   getChanges() { return this.req<ChangesResponse>("GET", "/changes"); }
