@@ -4,12 +4,19 @@ import userEvent from "@testing-library/user-event";
 import { ChangesTab } from "../src/renderer/components/tabs/ChangesTab.js";
 import type { ChangeWithVotes } from "@guardian/shared";
 
-function change(id: string = "c1"): ChangeWithVotes {
+function change(id: string = "c1", over: Partial<ChangeWithVotes> = {}): ChangeWithVotes {
   return { id, repo: "r", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
     commitId: "abc1234", commitShort: "abc1234", authorName: "Anna", authorEmail: "a@x.de", committedAt: "t",
     summary: "s", oldMd: "Node 20", newMd: "Node 22", previousPath: null, cycleId: "cy", firstSeenAt: "t",
     votes: [{ changeId: id, guardianId: "g1", status: "offen", comment: null, updatedAt: "t" }],
-    adoLink: "http://x" };
+    adoLink: "http://x", ...over };
+}
+
+// Eine Änderung, die alle Hüter akzeptiert haben: steht in keiner Arbeitsliste
+// mehr, wird aber aus dem Verlauf heraus geöffnet.
+function abgeschlossen(id = "c9"): ChangeWithVotes {
+  return change(id, { filePath: "memory-bank/alt.md",
+    votes: [{ changeId: id, guardianId: "g1", status: "akzeptiert", comment: null, updatedAt: "t" }] });
 }
 
 describe("ChangesTab empty state", () => {
@@ -67,5 +74,46 @@ describe("ChangesTab vote flow", () => {
     expect(screen.getByRole("textbox")).toBeTruthy();
     rerender(<ChangesTab toRate={[c1, c2]} acceptedByMe={[]} selectedId="c2" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+});
+
+// Der Fehler: der Verlauf öffnete eine abgeschlossene Änderung, angezeigt wurde
+// aber die erste offene aus der Liste.
+describe("ChangesTab mit einer Änderung aus dem Verlauf", () => {
+  it("shows the change from the history, not the first open one", () => {
+    render(<ChangesTab toRate={[change("c1")]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+      selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.getByText("memory-bank/alt.md")).toBeTruthy();
+    expect(screen.queryByText("memory-bank/a.md")).toBeNull();
+  });
+
+  it("names it in the sidebar and marks it as accepted by everyone", () => {
+    render(<ChangesTab toRate={[change("c1")]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+      selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.getByText("AUS DEM VERLAUF")).toBeTruthy();
+    expect(screen.getByText("VON ALLEN AKZEPTIERT")).toBeTruthy();
+  });
+
+  it("shows it even when both lists are empty", () => {
+    render(<ChangesTab toRate={[]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+      selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.queryByText("Keine offenen Änderungen")).toBeNull();
+    expect(screen.getByText("memory-bank/alt.md")).toBeTruthy();
+  });
+
+  // Wieder ins Team holen muss von hier aus möglich bleiben.
+  it("offers a re-vote for it", async () => {
+    const onVote = vi.fn();
+    render(<ChangesTab toRate={[]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+      selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
+    await userEvent.click(screen.getByRole("button", { name: "Neu bewerten" }));
+    expect(onVote).toHaveBeenCalledWith("c9", "offen", "");
+  });
+
+  it("keeps the badge off a normal open change", () => {
+    render(<ChangesTab toRate={[change("c1")]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.queryByText("VON ALLEN AKZEPTIERT")).toBeNull();
+    expect(screen.queryByText("AUS DEM VERLAUF")).toBeNull();
   });
 });

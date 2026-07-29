@@ -89,17 +89,20 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
       store.getState().onWsEvent(e);
     }, () => { void sync().catch(() => {}); });
     // "Ansehen" im Toast → Main-Prozess zeigt das Fenster und meldet die Change-Id.
-    const offOpen = window.guardian.onOpenChange((id) => { store.getState().select(id); setTab("changes"); });
+    const offOpen = window.guardian.onOpenChange((id) => { void store.getState().select(id); setTab("changes"); });
     return () => { alive = false; off(); offOpen(); };
   }, [api, store, serverUrl, token]);
 
   const guardianId = me?.id ?? "";
-  const openChange = (id: string) => { store.getState().select(id); setTab("changes"); };
+  // Auf den Änderungen-Tab wird erst gewechselt, wenn die Änderung da ist —
+  // sonst zeigte der Tab kurz die vorige Auswahl.
+  const openChange = (id: string) => { void store.getState().select(id).then(() => setTab("changes")); };
 
   return (
     <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}>
       {tab === "changes" && <ChangesTab toRate={state.toRate} acceptedByMe={state.acceptedByMe} selectedId={state.selectedId}
-        guardianId={guardianId} guardians={guardians} onSelect={(id) => store.getState().select(id)}
+        fromHistory={state.fromHistory}
+        guardianId={guardianId} guardians={guardians} onSelect={(id) => void store.getState().select(id)}
         onVote={(id, s, c) => store.getState().castVote(id, s, c)} />}
       {tab === "meeting" && <MeetingPanel api={api} guardians={guardians} onOpen={openChange} />}
       {tab === "history" && <HistoryPanel api={api} onOpen={openChange} />}

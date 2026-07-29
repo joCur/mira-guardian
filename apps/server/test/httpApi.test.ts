@@ -60,6 +60,29 @@ describe("HTTP API", () => {
     expect(body.badge).toBe(0);
   });
 
+  // Der Verlauf im Widget holt sich Änderungen einzeln über ihre Id — auch
+  // solche, die alle Hüter akzeptiert haben und die deshalb in keiner der beiden
+  // Listen mehr auftauchen. Bricht das weg, zeigt der Verlauf die falsche
+  // Änderung.
+  it("serves a change that every guardian has accepted", async () => {
+    const token = await initFounder();
+    const cycle = ctx.store.getOpenCycle()!;
+    ctx.store.upsertChange({ id: "c1", repo: "R", branch: "main", filePath: "memory-bank/a.md",
+      changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
+      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, cycleId: cycle.id, firstSeenAt: "t" });
+    ctx.changeService.ensureVotesForChange("c1", now());
+    await ctx.app.inject({ method: "POST", url: "/changes/c1/vote",
+      headers: { authorization: `Bearer ${token}` }, payload: { status: "akzeptiert" } });
+
+    const lists = await ctx.app.inject({ method: "GET", url: "/changes", headers: { authorization: `Bearer ${token}` } });
+    const body = JSON.parse(lists.body);
+    expect([...body.toRate, ...body.acceptedByMe]).toEqual([]);
+
+    const single = await ctx.app.inject({ method: "GET", url: "/changes/c1", headers: { authorization: `Bearer ${token}` } });
+    expect(single.statusCode).toBe(200);
+    expect(JSON.parse(single.body).id).toBe("c1");
+  });
+
   it("enforces the comment rule on votes", async () => {
     const token = await initFounder();
     const cycle = ctx.store.getOpenCycle()!;

@@ -8,6 +8,8 @@ import { EmptyState, ICON_SHIELD_CHECK } from "../EmptyState.js";
 
 interface Props {
   toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; selectedId: string | null;
+  /** Aus dem Verlauf geöffnet und in keiner der beiden Listen — siehe store.ts. */
+  fromHistory?: ChangeWithVotes | null;
   guardianId: string; guardians?: Guardian[]; onSelect: (id: string) => void;
   onVote: (id: string, status: VoteStatus, comment: string) => void;
 }
@@ -25,7 +27,11 @@ function TypePill({ filePath, size }: { filePath: string; size: "sm" | "md" }) {
 }
 
 export function ChangesTab(p: Props) {
-  const sel = [...p.toRate, ...p.acceptedByMe].find(c => c.id === p.selectedId) ?? p.toRate[0] ?? p.acceptedByMe[0];
+  // Die aus dem Verlauf geöffnete Änderung gehört mit in die Auswahl, sonst
+  // landet der Fallback auf der ersten offenen Änderung — also einer anderen
+  // als der angeklickten.
+  const alle = [...p.toRate, ...p.acceptedByMe, ...(p.fromHistory ? [p.fromHistory] : [])];
+  const sel = alle.find(c => c.id === p.selectedId) ?? p.toRate[0] ?? p.acceptedByMe[0] ?? p.fromHistory ?? undefined;
   const [draft, setDraft] = useState<{ status: VoteStatus; comment: string } | null>(null);
   useEffect(() => { setDraft(null); }, [p.selectedId]);
 
@@ -36,6 +42,7 @@ export function ChangesTab(p: Props) {
     </EmptyState>
   );
   const byId = new Map((p.guardians ?? []).map(g => [g.id, g]));
+  const ausDemVerlauf = !!p.fromHistory && p.fromHistory.id === sel.id;
   const mine = sel.votes.find(v => v.guardianId === p.guardianId);
   // Keine Bewertungszeile heißt fachlich "noch nicht bewertet". Sonst stünde
   // eine leere Fußleiste da und die Änderung wäre nicht bewertbar.
@@ -70,6 +77,21 @@ export function ChangesTab(p: Props) {
             </div>
           </div>
         ))}
+        {/* Eigener Abschnitt, damit sichtbar ist, warum diese Änderung in keiner
+            der beiden Listen steht: sie ist längst durch. */}
+        {p.fromHistory && (
+          <>
+            <div className="px-3.5 pt-3.5 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">AUS DEM VERLAUF</div>
+            <div onClick={() => { p.onSelect(p.fromHistory!.id); setDraft(null); }}
+              className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
+                p.fromHistory.id === sel.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-ctp-green text-[11px] shrink-0">✓✓</span>
+                <span className="font-mono text-[11.5px] text-ctp-subtext1 truncate">{p.fromHistory.filePath.split("/").pop()}</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -81,6 +103,7 @@ export function ChangesTab(p: Props) {
             {sel.changeKind === "delete" && <span className="text-[10px] font-bold tracking-wide text-ctp-red bg-ctp-red/20 rounded px-1.5 py-0.5 shrink-0">GELÖSCHT</span>}
             {sel.previousPath && <span className="text-[10px] font-bold tracking-wide text-ctp-blue bg-ctp-blue/20 rounded px-1.5 py-0.5 shrink-0">
               {moveLabel(sel.previousPath, sel.filePath).toUpperCase()}</span>}
+            {ausDemVerlauf && <span className="text-[10px] font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1.5 py-0.5 shrink-0">VON ALLEN AKZEPTIERT</span>}
             <span className="font-mono text-[11px] text-ctp-subtext0 bg-ctp-surface0 border border-ctp-surface1 rounded px-1.5 py-0.5 shrink-0">{sel.commitShort}</span>
           </div>
           <div className="text-xs text-ctp-subtext0 mt-1">{sel.summary} · {sel.authorName}{selDate ? ` · ${selDate}` : ""}</div>
