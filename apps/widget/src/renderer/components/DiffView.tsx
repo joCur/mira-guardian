@@ -5,6 +5,7 @@ import { splitFrontmatter, parseFm, diffFmFields } from "../diff/frontmatter.js"
 import { FrontmatterCard } from "./FrontmatterCard.js";
 import { MarkdownBlock } from "./MarkdownBlock.js";
 import { RenameNotice } from "./RenameNotice.js";
+import { BaselineNotice } from "./BaselineNotice.js";
 
 function wrap(block: DiffBlock, i: number) {
   const inner = <MarkdownBlock md={block.md} />;
@@ -20,6 +21,10 @@ export function DiffView({ change }: { change: ChangeWithVotes }) {
   // unmarkiert dargestellt, damit man nachlesen kann, worum es geht.
   const nurVerschoben = change.changeKind === "rename";
   const isNew = !nurVerschoben && !change.oldMd?.trim();
+  // Neu angelegt heißt: es gibt keinen Vorgängerstand. Bei allem anderen müsste
+  // einer da sein — fehlt er, ist der unmarkierte Text kein "alles neu",
+  // sondern eine Lücke, die benannt werden muss.
+  const basisFehlt = isNew && change.changeKind !== "add";
   const oldSplit = splitFrontmatter(change.oldMd ?? "");
   const newSplit = splitFrontmatter(change.newMd ?? "");
   const oldFm = parseFm(oldSplit.fm);
@@ -36,6 +41,7 @@ export function DiffView({ change }: { change: ChangeWithVotes }) {
       {change.previousPath && (
         <RenameNotice previousPath={change.previousPath} filePath={change.filePath} changeKind={change.changeKind} />
       )}
+      {basisFehlt && <BaselineNotice changeKind={change.changeKind} />}
       <FrontmatterCard fields={fields} />
       {fmBroken && <MarkdownBlock md={"```yaml\n" + newSplit.fm + "\n```"} />}
       {blocks.map(wrap)}
