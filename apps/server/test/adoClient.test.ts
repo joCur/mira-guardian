@@ -75,4 +75,36 @@ describe("AdoClient", () => {
     const missing = new AdoClient(cfg, fakeFetch({}));
     expect(await missing.getItemContent("x.md", "def456")).toBeNull();
   });
+
+  // Ohne den Stand vor dem Commit gibt es keine Vergleichsbasis: eine geänderte
+  // Datei sähe für die Hüter aus wie ein frisch angelegtes Dokument.
+  it("holt den Stand vor dem Commit über versionOptions=previousChange", async () => {
+    const urls: string[] = [];
+    const recording = (async (url: string) => {
+      urls.push(String(url));
+      return { ok: true, status: 200, json: async () => fx("ado-item.json") } as Response;
+    }) as unknown as typeof fetch;
+
+    const c = new AdoClient(cfg, recording);
+    expect(await c.getItemContentBefore("docs/decisions/adr-013.md", "def456")).toBe("# ADR-013\n\nInhalt.");
+    expect(urls[0]).toContain("versionDescriptor.versionOptions=previousChange");
+    expect(urls[0]).toContain("versionDescriptor.version=def456");
+    expect(urls[0]).toContain("versionDescriptor.versionType=commit");
+  });
+
+  it("liefert null, wenn es vor dem Commit keinen Stand gab", async () => {
+    const c = new AdoClient(cfg, fakeFetch({}));
+    expect(await c.getItemContentBefore("neu.md", "def456")).toBeNull();
+  });
+
+  it("fragt den Stand im Commit selbst ohne versionOptions ab", async () => {
+    const urls: string[] = [];
+    const recording = (async (url: string) => {
+      urls.push(String(url));
+      return { ok: true, status: 200, json: async () => fx("ado-item.json") } as Response;
+    }) as unknown as typeof fetch;
+
+    await new AdoClient(cfg, recording).getItemContent("docs/decisions/adr-013.md", "def456");
+    expect(urls[0]).not.toContain("versionOptions");
+  });
 });

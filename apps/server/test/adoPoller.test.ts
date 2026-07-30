@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Store } from "../src/db/store.js";
 import { ChangeService } from "../src/domain/changeService.js";
 import { AdoPoller } from "../src/ado/adoPoller.js";
 import { loadConfig } from "../src/config.js";
 import type { AdoClient, AdoCommit, AdoFileChange } from "../src/ado/adoClient.js";
+import type { Change } from "@guardian/shared";
 
 const cfg = loadConfig({
   ADO_BASE_URL: "https://ado.x", ADO_COLLECTION: "C", ADO_PROJECT: "P", ADO_REPO: "R",
@@ -14,9 +15,11 @@ class FakeAdo {
   commits: AdoCommit[] = [];
   changesByCommit: Record<string, AdoFileChange[]> = {};
   contentByCommit: Record<string, Record<string, string | null>> = {};
+  contentBeforeCommit: Record<string, Record<string, string | null>> = {};
   async listCommits() { return this.commits; }
   async listCommitChanges(id: string) { return this.changesByCommit[id] ?? []; }
   async getItemContent(path: string, id: string) { return this.contentByCommit[id]?.[path] ?? null; }
+  async getItemContentBefore(path: string, id: string) { return this.contentBeforeCommit[id]?.[path] ?? null; }
 }
 
 let clock = 0; const now = () => `t${clock++}`;
@@ -49,6 +52,127 @@ describe("AdoPoller", () => {
     expect(changes[0].summary).toBe("Neue Decision");
     expect(s.listVotesByChange(changes[0].id)[0].status).toBe("offen");
     expect(s.getLastSeenCommit("R", "main")).toBe("c1");
+  });
+
+  it("nimmt den Stand vor dem Commit als Vergleichsbasis einer Änderung", async () => {
+    ado.commits = [{ commitId: "c1", comment: "Auf Englisch übersetzt", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
+    ado.contentByCommit["c1"] = { "memory-bank/a.md": "English text" };
+    ado.contentBeforeCommit["c1"] = { "memory-bank/a.md": "Deutscher Text" };
+    await poller.pollOnce();
+    const c = s.listChangesByCycle("cy1")[0];
+    expect(c.oldMd).toBe("Deutscher Text");
+    expect(c.newMd).toBe("English text");
+  });
+
+  it("holt für eine Löschung den letzten Stand als Vergleichsbasis", async () => {
+    ado.commits = [{ commitId: "c1", comment: "Entfernt", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [{ path: "memory-bank/a.md", changeType: "delete" }];
+    ado.contentBeforeCommit["c1"] = { "memory-bank/a.md": "Der gelöschte Inhalt" };
+    await poller.pollOnce();
+    const c = s.listChangesByCycle("cy1")[0];
+    expect(c.changeKind).toBe("delete");
+    expect(c.oldMd).toBe("Der gelöschte Inhalt");
+    expect(c.newMd).toBeNull();
+  });
+
+  it("fragt für eine neu angelegte Datei keinen Vorgängerstand ab", async () => {
+    const calls: string[] = [];
+    ado.getItemContentBefore = async (path: string) => { calls.push(path); return null; };
+    ado.commits = [{ commitId: "c1", comment: "Neu", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [{ path: "memory-bank/a.md", changeType: "add" }];
+    ado.contentByCommit["c1"] = { "memory-bank/a.md": "# Neu" };
+    await poller.pollOnce();
+    expect(calls).toEqual([]);
+    expect(s.listChangesByCycle("cy1")[0].oldMd).toBeNull();
+  });
+
+  it("behält bei einer Folgeänderung die ursprüngliche Vergleichsbasis", async () => {
+    ado.commits = [{ commitId: "c1", comment: "v1", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
+    ado.contentByCommit["c1"] = { "memory-bank/a.md": "v1" };
+    ado.contentBeforeCommit["c1"] = { "memory-bank/a.md": "v0" };
+    await poller.pollOnce();
+
+    ado.commits = [
+      { commitId: "c2", comment: "v2", author: { name: "A", email: "a@x.de", date: "t" } },
+      { commitId: "c1", comment: "v1", author: { name: "A", email: "a@x.de", date: "t" } },
+    ];
+    ado.changesByCommit["c2"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
+    ado.contentByCommit["c2"] = { "memory-bank/a.md": "v2" };
+    ado.contentBeforeCommit["c2"] = { "memory-bank/a.md": "v1" };
+    await poller.pollOnce();
+
+    const c = s.listChangesByCycle("cy1")[0];
+    expect(c.oldMd).toBe("v0"); // kumulativ: Basis bleibt der Stand beim ersten Sichten
+    expect(c.newMd).toBe("v2");
+  });
+
+  // Bestandsdaten: Einträge, die vor dem Nachziehen der Vergleichsbasis
+  // erfasst wurden, haben oldMd = null und sähen für immer aus wie neue
+  // Dokumente — upsertChange lässt old_md bei Folgecommits absichtlich stehen.
+  describe("ergaenzeFehlendeVergleichsbasen", () => {
+    function bestand(over: Partial<Change> = {}): Change {
+      return {
+        id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
+        commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
+        summary: "Übersetzt", oldMd: null, newMd: "English text", previousPath: null,
+        cycleId: "cy1", firstSeenAt: "t", ...over,
+      };
+    }
+
+    it("holt die Basis für eine Änderung ohne Vergleichsbasis nach", async () => {
+      s.upsertChange(bestand());
+      ado.contentBeforeCommit["c9"] = { "memory-bank/a.md": "Deutscher Text" };
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(1);
+      expect(s.getChange("ch1")!.oldMd).toBe("Deutscher Text");
+    });
+
+    it("lässt neu angelegte Dokumente unberührt", async () => {
+      const abgefragt: string[] = [];
+      ado.getItemContentBefore = async (p: string) => { abgefragt.push(p); return "egal"; };
+      s.upsertChange(bestand({ changeKind: "add" }));
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(0);
+      expect(abgefragt).toEqual([]);
+      expect(s.getChange("ch1")!.oldMd).toBeNull();
+    });
+
+    it("lässt eine vorhandene Vergleichsbasis unangetastet", async () => {
+      s.upsertChange(bestand({ oldMd: "schon da" }));
+      ado.contentBeforeCommit["c9"] = { "memory-bank/a.md": "würde überschreiben" };
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(0);
+      expect(s.getChange("ch1")!.oldMd).toBe("schon da");
+    });
+
+    it("überspringt Einträge, für die ADO keinen Vorgängerstand kennt", async () => {
+      s.upsertChange(bestand());
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(0);
+      expect(s.getChange("ch1")!.oldMd).toBeNull();
+    });
+
+    // Der Backfill läuft beim Start. Ein einzelner Ausfall darf nicht dazu
+    // führen, dass alle folgenden Einträge ohne Basis bleiben.
+    it("macht nach einem Fehler mit den übrigen Einträgen weiter", async () => {
+      s.upsertChange(bestand({ id: "ch1", filePath: "memory-bank/a.md", committedAt: "t1" }));
+      s.upsertChange(bestand({ id: "ch2", filePath: "memory-bank/b.md", committedAt: "t2" }));
+      ado.getItemContentBefore = async (p: string) => {
+        if (p === "memory-bank/a.md") throw new Error("ADO item 500");
+        return "Basis für b";
+      };
+      const stumm = vi.spyOn(console, "error").mockImplementation(() => {});
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(1);
+      expect(stumm).toHaveBeenCalledOnce();
+      stumm.mockRestore();
+      expect(s.getChange("ch1")!.oldMd).toBeNull();
+      expect(s.getChange("ch2")!.oldMd).toBe("Basis für b");
+    });
+
+    it("nutzt beim Verschieben den Pfad vor dem Commit", async () => {
+      s.upsertChange(bestand({ filePath: "memory-bank/neu.md", previousPath: "memory-bank/alt.md" }));
+      ado.contentBeforeCommit["c9"] = { "memory-bank/alt.md": "Stand unter altem Pfad" };
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(1);
+      expect(s.getChange("ch1")!.oldMd).toBe("Stand unter altem Pfad");
+    });
   });
 
   it("skips commits at or before last seen", async () => {
