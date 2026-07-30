@@ -13,6 +13,29 @@ function change(over: Partial<ChangeWithVotes>): ChangeWithVotes {
 const NEW_MD = "---\nstatus: Active\ncategory: Review\n---\n\n# Titel\n\nInhalt der neuen Datei";
 
 describe("DiffView", () => {
+  // Eine geänderte Datei ohne Vergleichsstand sah bisher aus wie ein frisch
+  // angelegtes Dokument — der Hüter hätte den Unterschied nie bemerkt.
+  it("weist darauf hin, wenn zu einer Änderung der Vergleichsstand fehlt", () => {
+    render(<DiffView change={change({ oldMd: null, newMd: NEW_MD, changeKind: "modify" })} />);
+    expect(screen.getByText(/Vergleichsstand fehlt/)).toBeTruthy();
+  });
+
+  it("zeigt den Hinweis nicht bei einem neu angelegten Dokument", () => {
+    render(<DiffView change={change({ oldMd: null, newMd: NEW_MD, changeKind: "add" })} />);
+    expect(screen.queryByText(/Vergleichsstand fehlt/)).toBeNull();
+  });
+
+  it("zeigt den Hinweis nicht, wenn ein Vergleichsstand vorliegt", () => {
+    render(<DiffView change={change({})} />);
+    expect(screen.queryByText(/Vergleichsstand fehlt/)).toBeNull();
+  });
+
+  it("zeigt den Hinweis nicht beim reinen Verschieben", () => {
+    render(<DiffView change={change({ oldMd: null, newMd: NEW_MD, changeKind: "rename",
+      previousPath: "memory-bank/alt.md" })} />);
+    expect(screen.queryByText(/Vergleichsstand fehlt/)).toBeNull();
+  });
+
   it("renders new files as a normal document without the green box", () => {
     const { container } = render(<DiffView change={change({ oldMd: null, newMd: NEW_MD, changeKind: "add" })} />);
     expect(screen.queryByText(/gesamter Inhalt ist neu/)).toBeNull();

@@ -55,6 +55,26 @@ function lineDiff(oldB: string, newB: string): string {
   return out.join("\n");
 }
 
+// Ab wann zwei Fassungen eines Blocks zu weit auseinanderliegen, um sie Wort
+// für Wort gegenüberzustellen: Bleibt weniger als die Hälfte der Wörter gleich
+// — etwa weil der Absatz übersetzt wurde —, wechselt der Wort-Diff ständig
+// zwischen beiden Sprachen und ist nicht mehr zu lesen. Kurze Zeilen sind davon
+// ausgenommen: "⟦-Kontext⟧ ⟦+Context⟧" liest sich besser als zwei Blöcke.
+const AEHNLICH_AB = 0.5;
+const ERST_AB_WORTEN = 6;
+
+function woerter(s: string): string[] {
+  return s.split(/\s+/).filter(Boolean);
+}
+
+function zuWeitAuseinander(alt: string, neu: string): boolean {
+  const a = woerter(alt), b = woerter(neu);
+  const laenger = Math.max(a.length, b.length);
+  if (laenger < ERST_AB_WORTEN) return false;
+  const gleich = lcs(a, b).reduce((n, op) => n + (op.t === "s" ? 1 : 0), 0);
+  return gleich / laenger < AEHNLICH_AB;
+}
+
 // Blöcke an Leerzeilen trennen — aber nie innerhalb eines ```/~~~-Fences,
 // sonst zerreißt Code mit Leerzeilen in kaputte Teilblöcke.
 function splitBlocks(md: string): string[] {
@@ -83,7 +103,14 @@ export function diffBlocks(oldMd: string, newMd: string): DiffBlock[] {
     while (i < ops.length && ops[i].t !== "s") { (ops[i].t === "d" ? dels : adds).push(ops[i].v); i++; }
     const n = Math.max(dels.length, adds.length);
     for (let k = 0; k < n; k++) {
-      if (k < dels.length && k < adds.length) res.push({ kind: "changed", md: lineDiff(dels[k], adds[k]) });
+      if (k < dels.length && k < adds.length) {
+        if (zuWeitAuseinander(dels[k], adds[k])) {
+          res.push({ kind: "del", md: dels[k] });
+          res.push({ kind: "add", md: adds[k] });
+        } else {
+          res.push({ kind: "changed", md: lineDiff(dels[k], adds[k]) });
+        }
+      }
       else if (k < dels.length) res.push({ kind: "del", md: dels[k] });
       else res.push({ kind: "add", md: adds[k] });
     }

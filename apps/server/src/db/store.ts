@@ -145,6 +145,16 @@ export class Store {
   listAllChanges(): Change[] {
     return (this.db.prepare("SELECT * FROM change_item ORDER BY committed_at DESC").all() as any[]).map(this.mapChange);
   }
+  // Einträge, denen die Vergleichsbasis fehlt. Neu angelegte Dokumente ("add")
+  // und reines Verschieben ("rename") haben naturgemäß keine.
+  listChangesWithoutBaseline(): Change[] {
+    return (this.db.prepare(
+      `SELECT * FROM change_item WHERE old_md IS NULL AND change_kind NOT IN ('add','rename')
+       ORDER BY committed_at`).all() as any[]).map(this.mapChange);
+  }
+  setBaseline(id: string, oldMd: string) {
+    this.db.prepare("UPDATE change_item SET old_md = ? WHERE id = ?").run(oldMd, id);
+  }
   // Bewertungsverlauf eines Hüters: nur abgegebene Bewertungen, neueste zuerst.
   listVotesByGuardian(guardianId: string): Array<Vote & { change: Change }> {
     const rows = this.db.prepare(`

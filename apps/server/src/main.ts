@@ -50,12 +50,21 @@ async function bootstrap() {
     socket.on("close", () => hub.remove(sink));
   });
 
+  // Einträge aus der Zeit ohne Vergleichsbasis nachziehen — sonst bliebe jede
+  // damals erfasste Änderung für immer als "neues Dokument" stehen.
+  const backfill = async () => {
+    try {
+      const n = await poller.ergaenzeFehlendeVergleichsbasen();
+      if (n > 0) console.log(`▸ Vergleichsbasis für ${n} Änderung(en) nachgeholt`);
+    } catch (e) { console.error("Nachziehen der Vergleichsbasen fehlgeschlagen:", (e as Error).message); }
+  };
+
   const tick = async () => {
     try { await poller.pollOnce(); }
     catch (e) { console.error("Poll fehlgeschlagen:", (e as Error).message); }
   };
   setInterval(tick, config.pollIntervalSeconds * 1000);
-  void tick();
+  void backfill().then(tick);
 
   await app.listen({ port: config.httpPort, host: "0.0.0.0" });
   console.log(`guardian-server ${config.version} hört auf :${config.httpPort}`);

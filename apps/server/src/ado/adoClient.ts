@@ -79,8 +79,24 @@ export class AdoClient {
   }
 
   async getItemContent(path: string, commitId: string): Promise<string | null> {
+    return this.itemContent(path, commitId);
+  }
+
+  /**
+   * Der Stand der Datei so, wie er vor diesem Commit war — die Vergleichsbasis
+   * für den Diff. `previousChange` liefert den Inhalt aus der vorhergehenden
+   * Änderung an genau dieser Datei; existierte sie davor nicht, antwortet ADO
+   * mit 404 und wir haben keine Basis (null).
+   */
+  async getItemContentBefore(path: string, commitId: string): Promise<string | null> {
+    return this.itemContent(path, commitId, "previousChange");
+  }
+
+  private async itemContent(path: string, commitId: string, versionOptions?: string): Promise<string | null> {
     const url = `${this.base}/items?path=/${encodeURIComponent(path)}` +
-      `&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit&includeContent=true&${API}`;
+      `&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit` +
+      (versionOptions ? `&versionDescriptor.versionOptions=${versionOptions}` : "") +
+      `&includeContent=true&${API}`;
     const res = await this.fetchFn(url, { headers: this.headers() });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`ADO item ${res.status}`);

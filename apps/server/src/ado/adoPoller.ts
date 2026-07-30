@@ -39,6 +39,29 @@ export class AdoPoller {
     });
   }
 
+  /**
+   * Zieht die Vergleichsbasis für Einträge nach, die noch ohne sie erfasst
+   * wurden. Nötig, weil upsertChange old_md bewusst nicht überschreibt: ohne
+   * diesen Schritt bliebe jede Änderung aus der Zeit davor als "neues
+   * Dokument" stehen, statt den Diff zu zeigen. Liefert die Zahl der
+   * ergänzten Einträge.
+   */
+  async ergaenzeFehlendeVergleichsbasen(): Promise<number> {
+    let ergaenzt = 0;
+    for (const c of this.store.listChangesWithoutBaseline()) {
+      try {
+        const basis = await this.ado.getItemContentBefore(c.previousPath ?? c.filePath, c.commitId);
+        if (basis === null) continue; // ADO kennt keinen Vorgängerstand
+        this.store.setBaseline(c.id, basis);
+        ergaenzt++;
+      } catch (e) {
+        // Ein einzelner Ausfall darf die übrigen Einträge nicht mitreißen.
+        console.error(`Vergleichsbasis für ${c.filePath} nicht ladbar:`, (e as Error).message);
+      }
+    }
+    return ergaenzt;
+  }
+
   async pollOnce(): Promise<string[]> {
     const { adoRepo: repo, adoBranch: branch } = this.cfg;
     const lastSeen = this.store.getLastSeenCommit(repo, branch);
@@ -99,11 +122,15 @@ export class AdoPoller {
         const existing = (fc.previousPath ? this.store.getChangeByPath(repo, branch, fc.previousPath) : undefined)
           ?? this.store.getChangeByPath(repo, branch, fc.path);
         const newMd = kind === "delete" ? null : await this.ado.getItemContent(fc.path, commit.commitId);
-        let oldMd: string | null = existing ? existing.oldMd : null;
-        if (!existing && kind !== "add") {
-          // first sighting of a modify/delete: try parent content as the "before" baseline
-          oldMd = null; // parent lookup omitted in v1; baseline is empty (documented limitation)
-        }
+        // Beim ersten Sichten holen wir den Stand vor dem Commit als
+        // Vergleichsbasis. Bei einer Folgeänderung bleibt die ursprüngliche
+        // Basis stehen: die Hüter sollen alles sehen, was seit ihrem letzten
+        // Blick passiert ist, nicht nur den jüngsten Commit.
+        const oldMd: string | null = existing
+          ? existing.oldMd
+          : kind === "add"
+            ? null // neu angelegt — es gibt naturgemäß keinen Vorgängerstand
+            : await this.ado.getItemContentBefore(fc.previousPath ?? fc.path, commit.commitId);
         const change: Change = {
           id: existing?.id ?? randomUUID(),
           repo, branch, filePath: fc.path, changeKind: kind,
