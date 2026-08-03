@@ -100,11 +100,14 @@ Ersetzen des Artefakts:
 | Windows | `%APPDATA%\de.mediainterface.mira-guardian\config.json` |
 | Linux | `~/.config/de.mediainterface.mira-guardian/config.json` |
 
-Der Ordner ist nach der appId benannt und nicht nach dem Anzeigenamen der App —
-sonst würde eine Umbenennung (die App hieß anfangs *Memory-Bank Hüter*) auf
-einen leeren Ordner zeigen und wie ein Abmelden wirken. Wer aus einer solchen
-Version kommt, wird beim ersten Start automatisch übernommen; die alte Datei
-bleibt liegen. Ein Backup der Anmeldung ist ein Kopieren dieser Datei.
+Der Ordnername ist fest verdrahtet und nicht aus dem App-Namen abgeleitet.
+Früher lag die Datei unter `@guardian/widget` — dem Paketnamen, den Electron
+ohne eigene Angabe als App-Namen nimmt. Dorthin schrieb auch ein lokales
+`pnpm dev`, und ein Abmelden oder ein Umstellen auf `localhost` im
+Entwicklungsbetrieb hat die installierte App mit abgemeldet. Beide haben jetzt
+getrennte Ordner; eine vorhandene Anmeldung wird beim ersten Start übernommen,
+die alte Datei bleibt liegen. Ein Backup der Anmeldung ist ein Kopieren dieser
+Datei.
 
 Ist sie trotzdem verloren: [Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
 
