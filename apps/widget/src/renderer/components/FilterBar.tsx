@@ -40,11 +40,13 @@ function Zuruecksetzen({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function FilterBar({ value, onChange, levels, types, stacked }: {
+export function FilterBar({ value, onChange, levels, types, stacked, placeholder = "Suchen…" }: {
   value: Filter; onChange: (f: Filter) => void;
   levels: FilterOption[]; types: FilterOption[];
   /** Schmale Spalte: Suchfeld über den Auswahlfeldern statt daneben. */
   stacked?: boolean;
+  /** Sagt, wie weit die Suche reicht — die Tabs können unterschiedlich viel. */
+  placeholder?: string;
 }) {
   const aktiv = isFiltering(value);
   const felder = (
@@ -57,7 +59,7 @@ export function FilterBar({ value, onChange, levels, types, stacked }: {
   );
   return (
     <div className={stacked ? "flex flex-col gap-1.5" : "flex items-center gap-2"}>
-      <input type="search" aria-label="Suchen" placeholder="Suchen…" value={value.text}
+      <input type="search" aria-label="Suchen" placeholder={placeholder} value={value.text}
         onChange={e => onChange({ ...value, text: e.target.value })}
         className={`${FELD} text-[12px] placeholder:text-ctp-overlay0 px-2.5 py-1.5 ${stacked ? "w-full" : "flex-1"}`} />
       {/* In der schmalen Spalte bekommen die Auswahlfelder die volle Breite —

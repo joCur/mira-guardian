@@ -6,7 +6,7 @@ import { DiffView } from "../DiffView.js";
 import { moveLabel } from "../RenameNotice.js";
 import { EmptyState, ICON_SHIELD_CHECK } from "../EmptyState.js";
 import { FilterBar, LevelPill } from "../FilterBar.js";
-import { NO_FILTER, applyFilter, filterOptions, isFiltering, type Filter } from "../../filter.js";
+import { NO_FILTER, applyFilter, filterOptions, fundstelle, isFiltering, type Filter } from "../../filter.js";
 
 interface Props {
   toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; selectedId: string | null;
@@ -19,6 +19,27 @@ interface Props {
 function fmtDate(iso: string) {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? null : d.toLocaleDateString("de-DE", { day: "numeric", month: "long" });
+}
+
+/**
+ * Warum dieser Eintrag trotz Suche in der Liste steht, wenn der Grund weder im
+ * Namen noch in der Zusammenfassung sichtbar ist: der Treffer steckt im
+ * Dokument. Dann zeigt die Zeile die Stelle.
+ */
+function FundstelleZeile({ change, filter }: { change: ChangeWithVotes; filter: Filter }) {
+  const f = fundstelle(change, filter);
+  if (!f) return null;
+  return (
+    <div title={f.imAltenStand ? "Fundstelle im bisherigen Stand" : "Fundstelle im Dokument"}
+      className="flex items-baseline gap-1.5 min-w-0 mt-1 ml-[15px]">
+      <span className="text-[8.5px] px-1 py-px font-semibold tracking-wide rounded shrink-0 text-ctp-teal bg-ctp-teal/15">
+        {f.imAltenStand ? "ALT" : "TEXT"}
+      </span>
+      <span className="text-[10.5px] text-ctp-subtext0 truncate">
+        {f.vor}<span className="text-ctp-yellow bg-ctp-yellow/15 rounded-sm">{f.treffer}</span>{f.nach}
+      </span>
+    </div>
+  );
 }
 
 function TypePill({ filePath, size }: { filePath: string; size: "sm" | "md" }) {
@@ -56,7 +77,8 @@ export function ChangesTab(p: Props) {
     <div className="flex-1 flex min-h-0">
       <div className="w-[264px] border-r border-ctp-surface0 overflow-y-auto shrink-0">
         <div className="px-3 py-2.5 border-b border-ctp-surface0">
-          <FilterBar stacked value={filter} onChange={setFilter} levels={optionen.levels} types={optionen.types} />
+          <FilterBar stacked placeholder="Suchen, auch im Text…" value={filter} onChange={setFilter}
+            levels={optionen.levels} types={optionen.types} />
         </div>
         {toRate.length > 0 && <div className="px-3.5 pt-3 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">ZU BEWERTEN</div>}
         {toRate.map(c => (
@@ -73,6 +95,7 @@ export function ChangesTab(p: Props) {
               <LevelPill filePath={c.filePath} />
               <span className="text-[11px] text-ctp-subtext0 truncate">{c.summary}</span>
             </div>
+            <FundstelleZeile change={c} filter={filter} />
           </div>
         ))}
         {acceptedByMe.length > 0 && <div className="px-3.5 pt-3.5 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold">VON MIR AKZEPTIERT</div>}
@@ -85,6 +108,7 @@ export function ChangesTab(p: Props) {
               <span className="font-mono text-[11.5px] text-ctp-subtext1 truncate">{c.filePath.split("/").pop()}</span>
               <LevelPill filePath={c.filePath} />
             </div>
+            <FundstelleZeile change={c} filter={filter} />
           </div>
         ))}
         {leer && (

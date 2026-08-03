@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { NO_FILTER, isFiltering, matches, applyFilter, filterOptions, type Filterable } from "../src/renderer/filter.js";
+import { NO_FILTER, isFiltering, matches, applyFilter, filterOptions, fundstelle, type Filterable } from "../src/renderer/filter.js";
 
 const eintrag = (filePath: string, over: Partial<Filterable> = {}): Filterable => ({
   filePath, summary: "Absatz geändert", authorName: "Anna Berg", commitShort: "abc1234", ...over,
@@ -51,6 +51,87 @@ describe("filter/matches", () => {
     const e = eintrag("apps/web/docs/decisions/adr.md");
     expect(matches(e, { text: "adr", level: "apps/web", type: "Decision" })).toBe(true);
     expect(matches(e, { text: "adr", level: "apps/web", type: "Learning" })).toBe(false);
+  });
+});
+
+describe("filter/Volltext im Dokument", () => {
+  const doc = eintrag("docs/decisions/x.md", {
+    summary: "Schwelle angepasst",
+    newMd: "---\ntitel: Tabellen virtualisieren\n---\n\nAb 200 Zeilen virtualisieren wir.",
+    oldMd: "---\ntitel: Tabellen virtualisieren\n---\n\nAb 500 Zeilen virtualisieren wir.",
+  });
+
+  it("finds a word that only exists in the document", () => {
+    expect(matches(doc, { ...NO_FILTER, text: "virtualisieren" })).toBe(true);
+    // Der Frontmatter-Titel steht in keiner Zeile der Liste.
+    expect(matches(doc, { ...NO_FILTER, text: "tabellen" })).toBe(true);
+  });
+
+  it("finds a word that only exists in the previous version", () => {
+    expect(matches(doc, { ...NO_FILTER, text: "500" })).toBe(true);
+  });
+
+  it("still respects level and type next to the full text", () => {
+    expect(matches(doc, { text: "virtualisieren", level: "", type: "Decision" })).toBe(true);
+    expect(matches(doc, { text: "virtualisieren", level: "apps/web", type: null })).toBe(false);
+  });
+
+  it("does not invent hits", () => {
+    expect(matches(doc, { ...NO_FILTER, text: "kubernetes" })).toBe(false);
+  });
+
+  // Ohne Dokumentinhalt — so kommen die Verlaufseinträge an.
+  it("works unchanged when no content is present", () => {
+    const ohne = eintrag("docs/decisions/x.md");
+    expect(matches(ohne, { ...NO_FILTER, text: "absatz" })).toBe(true);
+    expect(matches(ohne, { ...NO_FILTER, text: "virtualisieren" })).toBe(false);
+  });
+});
+
+describe("filter/fundstelle", () => {
+  const doc = eintrag("docs/decisions/tabellen.md", {
+    summary: "Schwelle angepasst", authorName: "Anna Berg",
+    newMd: "---\ntitel: Tabellen virtualisieren\n---\n\nAb 200 Zeilen virtualisieren wir. Darunter kostet es mehr als es bringt.",
+    oldMd: "Ab 500 Zeilen virtualisieren wir.",
+  });
+
+  it("shows the passage for a hit that is only in the document", () => {
+    const f = fundstelle(doc, { ...NO_FILTER, text: "darunter" });
+    expect(f).not.toBeNull();
+    // Hervorgehoben wird, wie es im Dokument steht — nicht, wie es getippt wurde.
+    expect(f!.treffer).toBe("Darunter");
+    expect(`${f!.vor}${f!.treffer}${f!.nach}`).toContain("kostet es mehr");
+    expect(f!.imAltenStand).toBe(false);
+  });
+
+  // Steht der Begriff schon in der Zeile, erklärt eine Fundstelle nichts.
+  it("stays silent when the hit is visible anyway", () => {
+    expect(fundstelle(doc, { ...NO_FILTER, text: "schwelle" })).toBeNull();
+    expect(fundstelle(doc, { ...NO_FILTER, text: "anna" })).toBeNull();
+    expect(fundstelle(doc, { ...NO_FILTER, text: "tabellen.md" })).toBeNull();
+  });
+
+  it("marks a hit that only exists in the previous version", () => {
+    const f = fundstelle(doc, { ...NO_FILTER, text: "500" });
+    expect(f!.imAltenStand).toBe(true);
+  });
+
+  it("collapses line breaks so the passage fits one line", () => {
+    const f = fundstelle(doc, { ...NO_FILTER, text: "titel" });
+    expect(`${f!.vor}${f!.treffer}${f!.nach}`).not.toContain("\n");
+  });
+
+  // Die Zeile ist schmal und schneidet rechts ab — steht zu viel Kontext vor
+  // dem Treffer, ist ausgerechnet er nicht mehr zu sehen.
+  it("keeps the hit near the start of the passage", () => {
+    const f = fundstelle(doc, { ...NO_FILTER, text: "darunter" });
+    expect(f!.vor.length).toBeLessThanOrEqual(14);
+    expect(f!.nach.length).toBeGreaterThan(f!.vor.length);
+  });
+
+  it("has nothing to show without a search or without content", () => {
+    expect(fundstelle(doc, NO_FILTER)).toBeNull();
+    expect(fundstelle(eintrag("docs/decisions/x.md"), { ...NO_FILTER, text: "zzz" })).toBeNull();
   });
 });
 

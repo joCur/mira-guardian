@@ -212,6 +212,41 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
     expect(screen.getByText("alt.md")).toBeTruthy();
   });
 
+  // Die Suche reicht bis in das Dokument — dann muss die Zeile auch zeigen,
+  // warum der Eintrag stehen blieb.
+  it("finds a word that only exists in the document and shows the passage", async () => {
+    const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
+      oldMd: "Ab 500 Zeilen virtualisieren wir.",
+      newMd: "Ab 200 Zeilen virtualisieren wir. Darunter kostet es mehr als es bringt." });
+    render(<ChangesTab toRate={[doc, nlp]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "darunter");
+    expect(screen.getByText("tabellen.md")).toBeTruthy();
+    expect(screen.queryByText("tokenizer.md")).toBeNull();
+    expect(screen.getByText("TEXT")).toBeTruthy();
+    // Hervorgehoben in der Schreibweise des Dokuments.
+    expect(screen.getByText("Darunter")).toBeTruthy();
+  });
+
+  it("marks a passage that only exists in the previous version", async () => {
+    const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
+      oldMd: "Ab 500 Zeilen virtualisieren wir.", newMd: "Ab 200 Zeilen virtualisieren wir." });
+    render(<ChangesTab toRate={[doc]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "500");
+    expect(screen.getByText("ALT")).toBeTruthy();
+  });
+
+  it("shows no passage when the hit is visible in the row anyway", async () => {
+    const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
+      newMd: "Ab 200 Zeilen virtualisieren wir." });
+    render(<ChangesTab toRate={[doc]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "schwelle");
+    expect(screen.getByText("tabellen.md")).toBeTruthy();
+    expect(screen.queryByText("TEXT")).toBeNull();
+  });
+
   it("shows the empty state, not the filter, when there is nothing at all", () => {
     render(<ChangesTab toRate={[]} acceptedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.getByText("Keine offenen Änderungen")).toBeTruthy();
