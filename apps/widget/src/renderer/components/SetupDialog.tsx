@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Guardian } from "@guardian/shared";
 import type { ApiClient } from "../api/client.js";
 
@@ -30,6 +30,11 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
   const [code, setCode] = useState("");
   const [initCode, setInitCode] = useState(""), [name, setName] = useState(""), [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  // Gerätename für die Geräteliste des Hüters. Optional abgefragt, damit der
+  // Dialog auch ohne die Brücke (Tests) funktioniert; der Server setzt dann
+  // selbst einen Platzhalter.
+  const [deviceLabel, setDeviceLabel] = useState("");
+  useEffect(() => { void window.guardian?.getDeviceLabel?.().then(setDeviceLabel).catch(() => {}); }, []);
 
   // Die eingegebene Adresse wird gespeichert und im selben Schritt verwendet:
   // Ein Client für genau diese Adresse, damit ein Klick genügt. Auf den von
@@ -62,14 +67,14 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
     setError("");
     const target = await apiForEnteredUrl();
     if (!target) return;
-    try { const r = await target.client.redeem(code.trim().toUpperCase()); onLinked(r.deviceToken, r.guardian); }
+    try { const r = await target.client.redeem(code.trim().toUpperCase(), deviceLabel); onLinked(r.deviceToken, r.guardian); }
     catch (e) { setError(connectHint(e as Error, target.url)); }
   }
   async function init() {
     setError("");
     const target = await apiForEnteredUrl();
     if (!target) return;
-    try { const r = await target.client.init(initCode.trim(), name.trim(), email.trim()); onLinked(r.deviceToken, r.guardian); }
+    try { const r = await target.client.init(initCode.trim(), name.trim(), email.trim(), deviceLabel); onLinked(r.deviceToken, r.guardian); }
     catch (e) { setError(connectHint(e as Error, target.url)); }
   }
 
@@ -81,9 +86,11 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
             <div className="px-[22px] pt-5 pb-3.5">
               <LogoTitle title="Gerät verknüpfen" />
               <p className="text-xs text-ctp-subtext0 mt-2.5 leading-relaxed">
-                Du wurdest von einem Hüter angelegt und hast dabei einen{" "}
-                <strong className="text-ctp-subtext1 font-semibold">einmaligen Zugangscode</strong> bekommen.
-                Er verknüpft dieses Gerät mit deinem Hüter-Profil — danach ist keine Anmeldung mehr nötig.
+                Ein <strong className="text-ctp-subtext1 font-semibold">einmaliger Zugangscode</strong>{" "}
+                verknüpft dieses Gerät mit deinem Hüter-Profil — danach ist keine Anmeldung mehr nötig.
+                Neu dabei? Dann hat dich ein Hüter angelegt. Neuer Rechner oder Anmeldung verloren?
+                Dann lass dir im Hüter-Tab einen Code für dein bestehendes Profil ausstellen — deine
+                Bewertungen bleiben dabei erhalten.
               </p>
             </div>
             <div className="px-[22px] pb-[18px] pt-1 flex flex-col gap-2">

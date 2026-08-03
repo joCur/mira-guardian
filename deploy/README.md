@@ -79,32 +79,31 @@ Version der App. Weichen beide voneinander ab, weist die App darauf hin.
 
 ## Anmeldung eines Hüters wiederherstellen
 
-Der reguläre Weg auf ein neues Gerät ist ein Zugangscode, den ein bereits
-angemeldeter Hüter im Hüter-Tab ausstellt. Der legt allerdings ein **neues**
-Hüter-Profil an — für einen Hüter, der schon existiert und nur seine
-Widget-Config verloren hat, ist er also falsch: die bisherigen Bewertungen
-hingen am alten Profil. Für den Gründungs-Hüter kommt hinzu, dass sein
-Setup-Code verbraucht ist und `/auth/init` eine initialisierte Instanz ablehnt.
+Der Weg auf einen neuen Rechner läuft ohne den Server: Im Hüter-Tab stellt jeder
+Hüter über **Gerät verknüpfen** einen Zugangscode für ein bestehendes Profil aus
+— auch für sich selbst, solange noch ein Gerät angemeldet ist. Der Code ist 24
+Stunden gültig, gilt einmalig, und das Profil bleibt dasselbe: Bewertungen und
+Gründungsrolle kommen mit.
 
-Das Gerätetoken steht in diesem Fall noch in der Datenbank und lässt sich wieder
-eintragen. Auf dem Server ausgeben lassen:
+Der Betreiber wird nur gebraucht, wenn **kein** Gerät mehr angemeldet ist, das
+einen Code ausstellen könnte — beim Gründungs-Hüter zusätzlich deshalb, weil
+sein Setup-Code verbraucht ist und `/auth/init` eine initialisierte Instanz
+ablehnt:
 
 ```bash
 cd ~/mira-guardian
-docker compose exec server node -e "const db=require('better-sqlite3')('/data/guardian.sqlite');console.log(db.prepare('SELECT g.email, d.token FROM device d JOIN guardian g ON g.id = d.guardian_id WHERE g.email = ?').all(process.argv[1]))" '<mail@example.com>'
+docker compose exec server node dist/cli.js guardians          # E-Mail und Geräte nachsehen
+docker compose exec server node dist/cli.js relink <mail@example.com>
 ```
 
-Das Token gehört auf dem Arbeitsplatz in die `config.json` des Widgets
-([Ablageort](../README.md#wo-die-anmeldung-liegt)) — die App muss dafür beendet
-sein, sie schreibt die Datei beim Beenden zurück:
+Der ausgegebene Code wird im Widget unter „Gerät verknüpfen" eingegeben. Er ist
+kurzlebig und einmalig — aber solange er gültig ist, öffnet er den Zugang zu
+diesem Profil: nicht in einem Ticket ablegen, und ein nicht genutzter Code wird
+am besten durch einen neuen entwertet.
 
-```json
-{ "token": "<token aus der Abfrage>", "serverUrl": "http://<server>:4000" }
-```
-
-Beim nächsten Start ist das Gerät wieder mit demselben Hüter-Profil verknüpft,
-Bewertungen und Gründungs-Rolle inklusive. Das Token ist ein Geheimnis wie ein
-Passwort: nicht über Chat oder Ticket weitergeben.
+Verlorene und ausgetauschte Rechner gehören danach aus der Liste: Im Hüter-Tab
+zeigt **Meine Geräte** jedes verknüpfte Gerät mit letztem Kontakt, und *Zugang
+entziehen* sperrt es sofort aus.
 
 ## Backup und Umzug auf einen anderen Server
 

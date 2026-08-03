@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
-import type { Guardian } from "@guardian/shared";
+import type { Device, Guardian } from "@guardian/shared";
 import type { UpdateStatus } from "../types/update.js";
 import { ApiClient, type MeetingResponse, type HistoryEntry } from "./api/client.js";
 import { subscribe } from "./api/ws.js";
@@ -139,16 +139,23 @@ function GuardiansPanel({ api, serverUrl, onSignOut, appVersion, update }:
   { api: ApiClient; serverUrl: string; onSignOut: () => Promise<void>;
     appVersion: string; update: UpdateStatus }) {
   const [d, setD] = useState<any>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
   // null heißt "nicht bekannt" — der Server ist nicht erreichbar oder älter als
   // diese Anzeige. Beides darf den Tab nicht aufhalten.
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const load = () => api.getGuardians().then(setD);
+  // Ein Server ohne Geräteverwaltung antwortet hier mit 404 — dann bleibt der
+  // Abschnitt leer statt den Tab zu blockieren.
+  const loadDevices = () => api.getMyDevices().then(r => setDevices(r.devices)).catch(() => setDevices([]));
   useEffect(() => {
     load();
+    void loadDevices();
     void api.getServerVersion().then(setServerVersion).catch(() => setServerVersion(null));
   }, [api]);
   return d ? <GuardiansTab guardians={d.guardians} pending={d.pending} serverUrl={serverUrl}
     onSignOut={onSignOut} onInvite={(n, e) => api.invite(n, e).then(load)}
+    devices={devices} onRelink={(id) => api.relink(id)}
+    onRevoke={(id) => api.revokeDevice(id).then(() => { void loadDevices(); })}
     appVersion={appVersion} serverVersion={serverVersion}
     update={update} onCheckUpdate={() => void window.guardian.checkForUpdate()} /> : null;
 }

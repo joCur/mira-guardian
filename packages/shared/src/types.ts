@@ -63,3 +63,20 @@ export interface TypeRule {
   pattern: string; // regex source, tested against the file path
   label: string;
 }
+
+/** Ein verknüpftes Gerät eines Hüters. Der Token selbst verlässt den Server nie. */
+export interface Device {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastSeenAt: string;
+  /** Das Gerät, von dem die Abfrage kommt — es lässt sich nur abmelden, nicht entziehen. */
+  current: boolean;
+}
+
+/** Zugangscode, der ein weiteres Gerät mit einem bestehenden Profil verknüpft. */
+export interface RelinkCode {
+  code: string;
+  expiresAt: string;
+  guardianName: string;
+}

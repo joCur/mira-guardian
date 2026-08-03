@@ -6,18 +6,34 @@ import { AuthService, AuthError } from "../domain/authService.js";
 import type { RealtimeHub } from "../realtime/hub.js";
 import { type Config, deepLink } from "../config.js";
 import { makeAuthHook } from "./auth.js";
+import { createLimiter, type Limiter } from "./rateLimit.js";
 
 export interface ApiDeps {
   store: Store; changeService: ChangeService; authService: AuthService;
   hub: RealtimeHub; config: Config; now: () => string;
+  /** Nur für Tests: ein Limiter mit kontrollierbarer Uhr und Grenze. */
+  limiter?: Limiter;
 }
 
 const COMMENT_REQUIRED: VoteStatus[] = ["klaerung", "abgelehnt"];
+const TOO_MANY = "Zu viele Versuche. Warte 15 Minuten und probiere es dann erneut.";
 
 export function buildApp(deps: ApiDeps): FastifyInstance {
   const { store, changeService, authService, hub, config, now } = deps;
   const app = Fastify({ logger: false });
   const authHook = makeAuthHook(authService);
+  const limiter = deps.limiter ?? createLimiter();
+
+  // Ein POST ohne Nutzlast (Code ausstellen, Gerät entziehen) trägt beim
+  // Renderer trotzdem den JSON-Content-Type aus dem gemeinsamen Anfrage-Kopf.
+  // Fastify beantwortet den leeren Body von sich aus mit 400, obwohl nichts
+  // fehlt — hier wird er zum leeren Objekt.
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+    const raw = body as string;
+    if (raw.trim() === "") return done(null, {});
+    try { done(null, JSON.parse(raw)); }
+    catch { done(Object.assign(new Error("Body ist kein gültiges JSON."), { statusCode: 400 })); }
+  });
 
   // CORS: the widget renderer is always a different origin than this server
   // (dev = the vite dev server, prod = a file:// page), so cross-origin fetches
@@ -45,13 +61,28 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
   app.get("/health", async () => ({ ok: true, version: config.version }));
 
   app.post("/auth/init", async (req, reply) => {
-    const { setupCode, name, email } = req.body as any;
-    try { return authService.initFounder(setupCode, name, email); }
+    const { setupCode, name, email, deviceLabel } = req.body as any;
+    if (!limiter.take(req.ip)) return reply.code(429).send({ error: TOO_MANY });
+    try {
+      const r = authService.initFounder(setupCode, name, email, deviceLabel);
+      limiter.reset(req.ip);
+      return r;
+    }
     catch (e) { if (e instanceof AuthError) return reply.code(400).send({ error: e.message }); throw e; }
   });
   app.post("/auth/redeem", async (req, reply) => {
-    const { code } = req.body as any;
-    try { const r = authService.redeem(code); hub.broadcast({ type: "guardian:added" }); return r; }
+    const { code, deviceLabel } = req.body as any;
+    // Gezählt wird vor dem Einlösen: sonst wäre das Limit für einen Angreifer
+    // wirkungslos, der nur falsche Codes schickt.
+    if (!limiter.take(req.ip)) return reply.code(429).send({ error: TOO_MANY });
+    try {
+      const r = authService.redeem(code, deviceLabel);
+      limiter.reset(req.ip);
+      // Ein Code auf ein bestehendes Profil fügt keinen Hüter hinzu, sondern nur
+      // ein Gerät — dann gibt es für die anderen nichts neu zu laden.
+      if (r.created) hub.broadcast({ type: "guardian:added" });
+      return r;
+    }
     catch (e) { if (e instanceof AuthError) return reply.code(400).send({ error: e.message }); throw e; }
   });
 
@@ -94,6 +125,22 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
       const { name, email } = req.body as any;
       try { return authService.invite(req.guardian!.id, name, email); }
       catch (e) { if (e instanceof AuthError) return reply.code(400).send({ error: e.message }); throw e; }
+    });
+
+    // Zugangscode für ein weiteres Gerät eines *bestehenden* Hüters — der Weg
+    // für einen neuen Rechner und für eine verlorene Anmeldung.
+    secured.post("/guardians/:id/relink", async (req, reply) => {
+      try { return authService.relink(req.guardian!.id, (req.params as any).id); }
+      catch (e) { if (e instanceof AuthError) return reply.code(400).send({ error: e.message }); throw e; }
+    });
+
+    // Eigene Geräte verwalten. Der Token selbst wird nie ausgeliefert.
+    secured.get("/me/devices", async (req) => ({
+      devices: authService.listDevices(req.guardian!.id, req.deviceId!),
+    }));
+    secured.post("/me/devices/:id/revoke", async (req, reply) => {
+      try { authService.revokeDevice(req.guardian!.id, (req.params as any).id); return { ok: true }; }
+      catch (e) { if (e instanceof AuthError) return reply.code(404).send({ error: e.message }); throw e; }
     });
 
     // Hüter-Übersicht: alles, was das Team noch gemeinsam durchgehen muss.

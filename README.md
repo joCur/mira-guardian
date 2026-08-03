@@ -154,6 +154,37 @@ Datei.
 
 Ist sie trotzdem verloren: [Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
 
+### Wo die Anmeldung liegt
+
+Gerätetoken und Server-Adresse stehen außerhalb der App und überleben das
+Ersetzen des Artefakts:
+
+| System | Datei |
+|---|---|
+| macOS | `~/Library/Application Support/de.mediainterface.mira-guardian/config.json` |
+| Windows | `%APPDATA%\de.mediainterface.mira-guardian\config.json` |
+| Linux | `~/.config/de.mediainterface.mira-guardian/config.json` |
+
+Der Ordnername ist fest verdrahtet und nicht aus dem App-Namen abgeleitet.
+Früher lag die Datei unter `@guardian/widget` — dem Paketnamen, den Electron
+ohne eigene Angabe als App-Namen nimmt. Dorthin schrieb auch ein lokales
+`pnpm dev`, und ein Abmelden oder ein Umstellen auf `localhost` im
+Entwicklungsbetrieb hat die installierte App mit abgemeldet. Beide haben jetzt
+getrennte Ordner; eine vorhandene Anmeldung wird beim ersten Start übernommen,
+die alte Datei bleibt liegen. Ein Backup der Anmeldung ist ein Kopieren dieser
+Datei.
+
+### Neuer Rechner, verlorene Anmeldung
+
+Im Hüter-Tab stellt **Gerät verknüpfen** einen Zugangscode für ein bestehendes
+Profil aus — für einen Kollegen oder für sich selbst, solange noch ein Gerät
+angemeldet ist. Er gilt 24 Stunden und einmalig; das Profil bleibt dasselbe,
+Bewertungen und Gründungsrolle kommen mit. **Meine Geräte** zeigt alle
+verknüpften Geräte mit letztem Kontakt und entzieht einzelnen den Zugang.
+
+Ist kein Gerät mehr übrig, stellt der Betreiber den Code am Server aus:
+[Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
+
 ## Konfiguration
 
 | Variable | Standard | Bedeutung |

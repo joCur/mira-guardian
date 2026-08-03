@@ -24,6 +24,18 @@ export class Store {
     if (!columns("change_item").includes("previous_path")) {
       this.db.exec("ALTER TABLE change_item ADD COLUMN previous_path TEXT");
     }
+    if (!columns("invite_code").includes("guardian_id")) {
+      this.db.exec("ALTER TABLE invite_code ADD COLUMN guardian_id TEXT");
+    }
+    if (!columns("invite_code").includes("expires_at")) {
+      this.db.exec("ALTER TABLE invite_code ADD COLUMN expires_at TEXT");
+    }
+    // Geräte aus der Zeit ohne Anlagedatum: der letzte Kontakt ist die beste
+    // bekannte Untergrenze, sonst stünde in der Geräteliste eine Lücke.
+    if (!columns("device").includes("created_at")) {
+      this.db.exec("ALTER TABLE device ADD COLUMN created_at TEXT");
+      this.db.exec("UPDATE device SET created_at = last_seen_at WHERE created_at IS NULL");
+    }
   }
 
   getSetupState() {
@@ -53,29 +65,54 @@ export class Store {
     return r ? this.mapGuardian(r) : undefined;
   }
 
-  insertInviteCode(c: { code: string; name: string; email: string; createdBy: string; createdAt: string }) {
-    this.db.prepare(`INSERT INTO invite_code (code,name,email,created_by,created_at)
-      VALUES (@code,@name,@email,@createdBy,@createdAt)`).run(c);
+  insertInviteCode(c: { code: string; name: string; email: string; createdBy: string; createdAt: string;
+    guardianId?: string | null; expiresAt?: string | null }) {
+    this.db.prepare(`INSERT INTO invite_code (code,name,email,created_by,created_at,guardian_id,expires_at)
+      VALUES (@code,@name,@email,@createdBy,@createdAt,@guardianId,@expiresAt)`)
+      .run({ guardianId: null, expiresAt: null, ...c });
   }
   getInviteCode(code: string) {
-    return this.db.prepare("SELECT code,name,email,redeemed_at AS redeemedAt FROM invite_code WHERE code = ?").get(code) as
-      { code: string; name: string; email: string; redeemedAt: string | null } | undefined;
+    return this.db.prepare(`SELECT code,name,email,redeemed_at AS redeemedAt,
+      guardian_id AS guardianId, expires_at AS expiresAt FROM invite_code WHERE code = ?`).get(code) as
+      { code: string; name: string; email: string; redeemedAt: string | null;
+        guardianId: string | null; expiresAt: string | null } | undefined;
   }
   markInviteRedeemed(code: string, guardianId: string, now: string) {
     this.db.prepare("UPDATE invite_code SET redeemed_at = ?, redeemed_by = ? WHERE code = ?").run(now, guardianId, code);
   }
+  // Nur echte Einladungen: die warten auf einen neuen Hüter und gehören
+  // deshalb in die Übersicht. Codes für ein bestehendes Profil sind ein
+  // Vorgang zwischen zwei Geräten und werden einmalig angezeigt.
   listOpenInviteCodes() {
-    return this.db.prepare("SELECT code,name,email FROM invite_code WHERE redeemed_at IS NULL ORDER BY created_at").all() as
+    return this.db.prepare(`SELECT code,name,email FROM invite_code
+      WHERE redeemed_at IS NULL AND guardian_id IS NULL ORDER BY created_at`).all() as
       { code: string; name: string; email: string }[];
   }
+  deleteOpenRelinkCodes(guardianId: string) {
+    this.db.prepare("DELETE FROM invite_code WHERE guardian_id = ? AND redeemed_at IS NULL").run(guardianId);
+  }
 
-  insertDevice(d: { id: string; guardianId: string; token: string; label: string; lastSeenAt: string }) {
-    this.db.prepare(`INSERT INTO device (id,guardian_id,token,label,last_seen_at)
-      VALUES (@id,@guardianId,@token,@label,@lastSeenAt)`).run(d);
+  insertDevice(d: { id: string; guardianId: string; token: string; label: string; lastSeenAt: string; createdAt: string }) {
+    this.db.prepare(`INSERT INTO device (id,guardian_id,token,label,last_seen_at,created_at)
+      VALUES (@id,@guardianId,@token,@label,@lastSeenAt,@createdAt)`).run(d);
   }
   getDeviceByToken(token: string) {
-    return this.db.prepare("SELECT id, guardian_id AS guardianId FROM device WHERE token = ?").get(token) as
-      { id: string; guardianId: string } | undefined;
+    return this.db.prepare(`SELECT id, guardian_id AS guardianId, last_seen_at AS lastSeenAt
+      FROM device WHERE token = ?`).get(token) as
+      { id: string; guardianId: string; lastSeenAt: string } | undefined;
+  }
+  listDevices(guardianId: string) {
+    return this.db.prepare(`SELECT id, label, created_at AS createdAt, last_seen_at AS lastSeenAt
+      FROM device WHERE guardian_id = ? ORDER BY created_at`).all(guardianId) as
+      { id: string; label: string; createdAt: string; lastSeenAt: string }[];
+  }
+  // Die Hüter-Bindung steht in der Bedingung, damit kein fremdes Gerät
+  // entzogen werden kann, auch wenn die ID stimmt.
+  deleteDevice(id: string, guardianId: string): boolean {
+    return this.db.prepare("DELETE FROM device WHERE id = ? AND guardian_id = ?").run(id, guardianId).changes > 0;
+  }
+  touchDevice(id: string, now: string) {
+    this.db.prepare("UPDATE device SET last_seen_at = ? WHERE id = ?").run(now, id);
   }
 
   private mapCycle = (r: any): Cycle => ({ id: r.id, isoWeek: r.iso_week, startsAt: r.starts_at,
