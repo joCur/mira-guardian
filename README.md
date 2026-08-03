@@ -117,6 +117,28 @@ das Zertifikat bricht der Paketierschritt ab — das ist Absicht, denn ein
 unsigniertes oder ad-hoc signiertes Bundle wäre auf macOS eine Einbahnstraße
 ohne weitere Updates.
 
+### Wo die Anmeldung liegt
+
+Gerätetoken und Server-Adresse stehen außerhalb der App und überleben das
+Ersetzen des Artefakts:
+
+| System | Datei |
+|---|---|
+| macOS | `~/Library/Application Support/de.mediainterface.mira-guardian/config.json` |
+| Windows | `%APPDATA%\de.mediainterface.mira-guardian\config.json` |
+| Linux | `~/.config/de.mediainterface.mira-guardian/config.json` |
+
+Der Ordnername ist fest verdrahtet und nicht aus dem App-Namen abgeleitet.
+Früher lag die Datei unter `@guardian/widget` — dem Paketnamen, den Electron
+ohne eigene Angabe als App-Namen nimmt. Dorthin schrieb auch ein lokales
+`pnpm dev`, und ein Abmelden oder ein Umstellen auf `localhost` im
+Entwicklungsbetrieb hat die installierte App mit abgemeldet. Beide haben jetzt
+getrennte Ordner; eine vorhandene Anmeldung wird beim ersten Start übernommen,
+die alte Datei bleibt liegen. Ein Backup der Anmeldung ist ein Kopieren dieser
+Datei.
+
+Ist sie trotzdem verloren: [Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
+
 ## Konfiguration
 
 | Variable | Standard | Bedeutung |
