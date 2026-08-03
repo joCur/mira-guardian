@@ -41,7 +41,7 @@ describe("AuthService", () => {
     s.insertCycle({ id: "cy1", isoWeek: "2026-W31", startsAt: "t", endsAt: null, closedAt: null, note: null });
     s.upsertChange({ id: "c1", repo: "r", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-      committedAt: "t", summary: "s", oldMd: null, newMd: "n", previousPath: null,
+      committedAt: "t", summary: "s", oldMd: null, newMd: "n", previousPath: null, baselineCommitId: null,
       cycleId: "cy1", firstSeenAt: "t" });
 
     const r = svc.initFounder("MB-INIT-7743", "Anna Roth", "anna@x.de");
@@ -59,7 +59,7 @@ describe("AuthService", () => {
     s.upsertChange({ id: "c1", repo: "r", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
       committedAt: "t", summary: "s", oldMd: "o", newMd: "n",
-      previousPath: null, cycleId: s.getOpenCycle()!.id, firstSeenAt: "t" });
+      previousPath: null, baselineCommitId: null, cycleId: s.getOpenCycle()!.id, firstSeenAt: "t" });
     const { code } = svc.invite(founder.guardian.id, "Ben Keller", "ben@x.de");
     const r = svc.redeem(code);
     expect(r.guardian.name).toBe("Ben Keller");

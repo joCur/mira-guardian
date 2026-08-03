@@ -1,0 +1,92 @@
+import React, { useState } from "react";
+import type { ChangeWithVotes } from "@guardian/shared";
+import { useBild, type Bildseite, type BildStand } from "../bild/kontext.js";
+import { Lupe } from "./Lupe.js";
+
+const AKZENT: Record<Bildseite, { rand: string; text: string; titel: string }> = {
+  vorher: { rand: "border-ctp-red", text: "text-ctp-red", titel: "VORHER" },
+  nachher: { rand: "border-ctp-green", text: "text-ctp-green", titel: "NACHHER" },
+};
+
+const FLAECHE = "rounded-md flex items-center justify-center overflow-hidden";
+/**
+ * Diagramme werden fast immer für hellen Grund gezeichnet und sind oft
+ * transparent. Auf der dunklen Oberfläche wären dunkle Linien auf
+ * durchsichtigem Grund unsichtbar — deshalb steht jedes Bild auf Weiß. Wo
+ * kein Bild ist, bleibt die Fläche dunkel: ein weißer Kasten sähe aus wie ein
+ * leeres Bild.
+ */
+const BILDFLAECHE = `${FLAECHE} bg-white`;
+
+function Platzhalter({ text, ton }: { text: string; ton: "warten" | "leer" }) {
+  return (
+    <div className={`${FLAECHE} h-[140px] ${ton === "warten" ? "animate-pulse bg-ctp-surface0" : "bg-ctp-surface0/50 border border-ctp-surface0"}`}>
+      <span className="text-[11.5px] text-ctp-subtext0">{text}</span>
+    </div>
+  );
+}
+
+function Tafel({ seite, stand, alt, onGross, einzeln }:
+  { seite: Bildseite; stand: BildStand; alt: string; onGross: (url: string) => void; einzeln: boolean }) {
+  const a = AKZENT[seite];
+  const [masse, setMasse] = useState<string | null>(null);
+
+  return (
+    <div className={`border-l-[3px] ${a.rand} pl-3 min-w-0`}>
+      <div className="flex items-baseline gap-2 mb-1.5">
+        {!einzeln && <span className={`text-[10px] tracking-[0.08em] font-semibold ${a.text}`}>{a.titel}</span>}
+        {masse && <span className="text-[10.5px] text-ctp-subtext0 font-mono">{masse}</span>}
+      </div>
+      {stand.status === "laedt" && <Platzhalter text="lädt…" ton="warten" />}
+      {stand.status === "fehlt" && (
+        <Platzhalter text={seite === "vorher" ? "Kein Vorgängerstand" : "Nicht mehr vorhanden"} ton="leer" />
+      )}
+      {stand.status === "fehler" && <Platzhalter text="Bild nicht abrufbar" ton="leer" />}
+      {stand.status === "da" && (
+        <>
+          <button type="button" onClick={() => onGross(stand.url)}
+            className={`${BILDFLAECHE} w-full cursor-zoom-in`} title="Klicken zum Vergrößern">
+            <img src={stand.url} alt={alt} className="max-h-[300px] w-full object-contain"
+              onLoad={e => {
+                const el = e.currentTarget;
+                if (el.naturalWidth) setMasse(`${el.naturalWidth} × ${el.naturalHeight}`);
+              }} />
+          </button>
+          {/* Nebeneinander bekommt jedes Bild nur die halbe Breite. Bei einem
+              breiten Diagramm sind Details erst groß erkennbar — das muss
+              dastehen, sonst sucht niemand danach. */}
+          <span className="block text-[10.5px] text-ctp-overlay0 mt-1">Klicken zum Vergrößern</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Bilder lassen sich nicht zeilenweise vergleichen. Statt eines Textdiffs
+ * stehen hier beide Fassungen nebeneinander — und wo es nur eine gibt (neu
+ * angelegt, gelöscht, nur verschoben), eben nur diese.
+ */
+export function BildVergleich({ change }: { change: ChangeWithVotes }) {
+  const [gross, setGross] = useState<string | null>(null);
+  // Nur verschoben heißt: derselbe Inhalt an anderer Stelle. Zwei identische
+  // Bilder nebeneinander zu stellen würde eine Änderung vortäuschen.
+  const nurVerschoben = change.changeKind === "rename";
+  const zeigeVorher = !nurVerschoben && change.changeKind !== "add";
+  const zeigeNachher = change.changeKind !== "delete";
+  const einzeln = !(zeigeVorher && zeigeNachher);
+
+  const vorher = useBild(zeigeVorher ? change.id : null, "vorher");
+  const nachher = useBild(zeigeNachher ? change.id : null, "nachher");
+  const name = change.filePath.split("/").pop() ?? change.filePath;
+
+  return (
+    <div>
+      <div className={einzeln ? "" : "grid grid-cols-2 gap-4"}>
+        {zeigeVorher && <Tafel seite="vorher" stand={vorher} alt={`${name} vorher`} onGross={setGross} einzeln={einzeln} />}
+        {zeigeNachher && <Tafel seite="nachher" stand={nachher} alt={`${name} nachher`} onGross={setGross} einzeln={einzeln} />}
+      </div>
+      {gross && <Lupe url={gross} onZu={() => setGross(null)} />}
+    </div>
+  );
+}

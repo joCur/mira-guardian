@@ -5,6 +5,7 @@ import { AuthService } from "../src/domain/authService.js";
 import { RealtimeHub } from "../src/realtime/hub.js";
 import { buildApp } from "../src/api/httpApi.js";
 import { loadConfig } from "../src/config.js";
+import type { BildDienst } from "../src/api/bilder.js";
 
 const config = loadConfig({
   ADO_BASE_URL: "https://ado.x", ADO_COLLECTION: "C", ADO_PROJECT: "P", ADO_REPO: "R", ADO_PAT: "s",
@@ -69,7 +70,7 @@ describe("HTTP API", () => {
     const cycle = ctx.store.getOpenCycle()!;
     ctx.store.upsertChange({ id: "c1", repo: "R", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, cycleId: cycle.id, firstSeenAt: "t" });
+      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, cycleId: cycle.id, firstSeenAt: "t" });
     ctx.changeService.ensureVotesForChange("c1", now());
     await ctx.app.inject({ method: "POST", url: "/changes/c1/vote",
       headers: { authorization: `Bearer ${token}` }, payload: { status: "akzeptiert" } });
@@ -88,7 +89,7 @@ describe("HTTP API", () => {
     const cycle = ctx.store.getOpenCycle()!;
     ctx.store.upsertChange({ id: "c1", repo: "R", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, cycleId: cycle.id, firstSeenAt: "t" });
+      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, cycleId: cycle.id, firstSeenAt: "t" });
     ctx.changeService.ensureVotesForChange("c1", now());
 
     const bad = await ctx.app.inject({ method: "POST", url: "/changes/c1/vote",
@@ -99,5 +100,95 @@ describe("HTTP API", () => {
       headers: { authorization: `Bearer ${token}` }, payload: { status: "abgelehnt", comment: "Bitte zuerst Specs migrieren." } });
     expect(ok.statusCode).toBe(200);
     expect(JSON.parse(ok.body).votes[0].status).toBe("abgelehnt");
+  });
+
+  describe("Bilder", () => {
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+    function mitBildern(hole: BildDienst["hole"]) {
+      const store = new Store(":memory:");
+      store.ensureSetupCode("MB-INIT-7743");
+      const changeService = new ChangeService(store);
+      const authService = new AuthService(store, changeService, now);
+      const app = buildApp({ store, changeService, authService, hub: new RealtimeHub(), config, now,
+        bildDienst: { hole } as BildDienst });
+      return { store, app };
+    }
+
+    async function angemeldet(app: ReturnType<typeof buildApp>) {
+      const res = await app.inject({ method: "POST", url: "/auth/init",
+        payload: { setupCode: "MB-INIT-7743", name: "Anna Roth", email: "anna@x.de" } });
+      return JSON.parse(res.body).deviceToken as string;
+    }
+
+    function bildAenderung(store: Store) {
+      if (!store.getOpenCycle()) {
+        store.insertCycle({ id: "cy1", isoWeek: "2026-W30", startsAt: "t", endsAt: null, closedAt: null, note: null });
+      }
+      store.upsertChange({ id: "b1", repo: "R", branch: "main", filePath: "docs/decisions/flow.png",
+        changeKind: "modify", commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de",
+        committedAt: "t", summary: "s", oldMd: null, newMd: null, previousPath: null,
+        baselineCommitId: "c9", cycleId: store.getOpenCycle()!.id, firstSeenAt: "t" });
+    }
+
+    it("liefert das Bild mit seinem Bildtyp aus", async () => {
+      const { store, app } = mitBildern(async () => ({ bytes: PNG, contentType: "image/png" }));
+      const token = await angemeldet(app);
+      bildAenderung(store);
+      const res = await app.inject({ method: "GET", url: "/changes/b1/bild/nachher",
+        headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toContain("image/png");
+      expect(res.rawPayload.subarray(0, 4).toString("hex")).toBe("89504e47");
+    });
+
+    it("reicht den Pfad eines eingebetteten Bildes an den Dienst weiter", async () => {
+      const gesehen: unknown[] = [];
+      const { store, app } = mitBildern(async (_c, seite, pfad) => {
+        gesehen.push([seite, pfad]);
+        return { bytes: PNG, contentType: "image/png" };
+      });
+      const token = await angemeldet(app);
+      bildAenderung(store);
+      await app.inject({ method: "GET", url: "/changes/b1/bild/vorher?pfad=diagrams%2Fflow.png",
+        headers: { authorization: `Bearer ${token}` } });
+      expect(gesehen).toEqual([["vorher", "diagrams/flow.png"]]);
+    });
+
+    // "Gibt es nicht" ist bei Bildern eine normale Auskunft — neu angelegt hat
+    // kein Vorher, gelöscht kein Nachher. Das Widget zeigt dafür einen Hinweis.
+    it("antwortet mit 404, wenn es die Seite nicht gibt", async () => {
+      const { store, app } = mitBildern(async () => null);
+      const token = await angemeldet(app);
+      bildAenderung(store);
+      const res = await app.inject({ method: "GET", url: "/changes/b1/bild/vorher",
+        headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("meldet einen Ausfall bei ADO als 502, nicht als leeres Bild", async () => {
+      const { store, app } = mitBildern(async () => { throw new Error("ADO item 500"); });
+      const token = await angemeldet(app);
+      bildAenderung(store);
+      const res = await app.inject({ method: "GET", url: "/changes/b1/bild/nachher",
+        headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(502);
+    });
+
+    it("weist eine unbekannte Seite ab", async () => {
+      const { store, app } = mitBildern(async () => ({ bytes: PNG, contentType: "image/png" }));
+      const token = await angemeldet(app);
+      bildAenderung(store);
+      const res = await app.inject({ method: "GET", url: "/changes/b1/bild/irgendwas",
+        headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("gibt Bilder nicht ohne Anmeldung heraus", async () => {
+      const { store, app } = mitBildern(async () => ({ bytes: PNG, contentType: "image/png" }));
+      bildAenderung(store);
+      const res = await app.inject({ method: "GET", url: "/changes/b1/bild/nachher" });
+      expect(res.statusCode).toBe(401);
+    });
   });
 });

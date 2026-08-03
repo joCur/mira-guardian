@@ -6,7 +6,7 @@ import type { ChangeWithVotes } from "@guardian/shared";
 function change(over: Partial<ChangeWithVotes>): ChangeWithVotes {
   return { id: "c", repo: "r", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
     commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
-    summary: "s", oldMd: "Node 20 base", newMd: "Node 22 base", previousPath: null,
+    summary: "s", oldMd: "Node 20 base", newMd: "Node 22 base", previousPath: null, baselineCommitId: null,
     cycleId: "cy", firstSeenAt: "t", votes: [], adoLink: "http://x", ...over };
 }
 

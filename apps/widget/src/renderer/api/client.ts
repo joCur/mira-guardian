@@ -40,6 +40,22 @@ export class ApiClient {
   // AppRoot neu aufgebaut ist.
   withBaseUrl(baseUrl: string) { return new ApiClient(baseUrl, this.token, this.fetchFn); }
 
+  /**
+   * Ein Bild zur Änderung. `pfad` bezeichnet ein Bild, das ein geändertes
+   * Dokument einbettet; ohne ihn kommt die geänderte Bilddatei selbst.
+   * Antwortet der Server mit 404, gibt es diese Seite nicht (neu angelegt,
+   * gelöscht) — das ist kein Fehler, sondern eine Auskunft: null.
+   */
+  async ladeBild(changeId: string, seite: "vorher" | "nachher", pfad?: string): Promise<Blob | null> {
+    const headers: Record<string, string> = {};
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const query = pfad ? `?pfad=${encodeURIComponent(pfad)}` : "";
+    const res = await this.fetchFn(`${this.baseUrl}/changes/${changeId}/bild/${seite}${query}`, { headers });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`);
+    return res.blob();
+  }
+
   init(setupCode: string, name: string, email: string) { return this.req<AuthResponse>("POST", "/auth/init", { setupCode, name, email }); }
   redeem(code: string) { return this.req<AuthResponse>("POST", "/auth/redeem", { code }); }
   getChanges() { return this.req<ChangesResponse>("GET", "/changes"); }

@@ -5,6 +5,7 @@ import { ApiClient, type MeetingResponse, type HistoryEntry } from "./api/client
 import { subscribe } from "./api/ws.js";
 import { catchUpChanges } from "./api/catchUp.js";
 import { createGuardianStore } from "./store.js";
+import { ApiProvider } from "./bild/kontext.js";
 import { SetupDialog } from "./components/SetupDialog.js";
 import { MainWindow, type Tab } from "./components/MainWindow.js";
 import { ChangesTab } from "./components/tabs/ChangesTab.js";
@@ -99,6 +100,7 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   const openChange = (id: string) => { void store.getState().select(id).then(() => setTab("changes")); };
 
   return (
+    <ApiProvider api={api}>
     <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}>
       {tab === "changes" && <ChangesTab toRate={state.toRate} acceptedByMe={state.acceptedByMe} selectedId={state.selectedId}
         fromHistory={state.fromHistory}
@@ -108,6 +110,7 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
       {tab === "history" && <HistoryPanel api={api} onOpen={openChange} />}
       {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onSignOut={onSignOut} />}
     </MainWindow>
+    </ApiProvider>
   );
 }
 

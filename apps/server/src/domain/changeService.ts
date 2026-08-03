@@ -1,4 +1,4 @@
-import type { Change, Vote, VoteStatus } from "@guardian/shared";
+import { istBilddatei, type Change, type Vote, type VoteStatus } from "@guardian/shared";
 import type { Store } from "../db/store.js";
 
 const RANK: Record<VoteStatus, number> = { abgelehnt: 3, klaerung: 2, offen: 1, akzeptiert: 0 };
@@ -112,6 +112,9 @@ export class ChangeService {
     let removed = 0;
     for (const c of this.store.listAllChanges()) {
       if (c.changeKind === "delete") continue;
+      // Bilder sind hier immer "leer": ihr Inhalt steht nicht in der Datenbank,
+      // sondern wird beim Anzeigen geholt. Sie zeigen trotzdem etwas an.
+      if (istBilddatei(c.filePath)) continue;
       if ((c.newMd ?? "") !== "" || (c.oldMd ?? "") !== "") continue;
       if (this.votes(c.id).some(v => v.status !== "offen")) continue;
       this.store.deleteChange(c.id);

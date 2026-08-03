@@ -11,7 +11,7 @@ function change(id: string, path: string): Change {
   return { id, repo: "r", branch: "main", filePath: path, changeKind: "modify",
     commitId: id, commitShort: id, authorName: "A", authorEmail: "a@x.de",
     committedAt: "2026-07-19T10:00:00Z", summary: "s", oldMd: "old", newMd: "new",
-    previousPath: null, cycleId: "cy1", firstSeenAt: "t" };
+    previousPath: null, baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t" };
 }
 
 describe("ChangeService", () => {
@@ -117,6 +117,14 @@ describe("ChangeService.purgeContentlessChanges", () => {
     s.upsertVote({ changeId: "bewertet", guardianId: "g1", status: "klaerung", comment: "was ist das?", updatedAt: "t" });
     expect(svc.purgeContentlessChanges()).toBe(0);
     expect(s.getChange("bewertet")).toBeDefined();
+  });
+
+  // Ein Bild trägt seinen Inhalt nie in der Datenbank — es sähe hier aus wie
+  // eine leere Altlast und verschwände sofort wieder aus der Liste.
+  it("lässt geänderte Bilder stehen, obwohl sie keinen Text mitbringen", () => {
+    s.upsertChange({ ...change("bild", "docs/decisions/diagrams/flow.png"), oldMd: null, newMd: null });
+    expect(svc.purgeContentlessChanges()).toBe(0);
+    expect(s.getChange("bild")).toBeDefined();
   });
 
   it("drops the orphaned votes of a purged entry", () => {
