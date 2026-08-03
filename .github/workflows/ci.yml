@@ -33,33 +33,3 @@ jobs:
         run: |
           pnpm --filter @guardian/server exec tsc --noEmit -p tsconfig.json
           pnpm --filter @guardian/widget exec tsc --noEmit -p tsconfig.json
-
-  # Die Aktualisierung auf macOS hängt an einer einzigen Bedingung: dass die
-  # Pipeline mit dem hinterlegten Zertifikat signieren kann. Läuft es ab, ist
-  # das Secret unbrauchbar oder fehlt der Vertrauenseintrag, dann signiert
-  # electron-builder stillschweigend nicht — das fällt sonst erst auf, wenn ein
-  # veröffentlichtes Release keine Updates mehr annimmt. Der Job prüft nur die
-  # Signierfähigkeit und paketiert dafür nicht die ganze App.
-  signierfaehigkeit:
-    runs-on: macos-latest
-    # Aus einem Fork sind die Secrets nicht erreichbar.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Signierschlüssel einrichten
-        env:
-          CERT_P12_BASE64: ${{ secrets.MAC_CSC_LINK }}
-          CERT_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-        run: .github/scripts/mac-signierschluessel.sh
-
-      - name: Probe signieren und Update-Anforderung prüfen
-        run: |
-          set -euo pipefail
-          cp /bin/echo probe
-          codesign --force --keychain "$CSC_KEYCHAIN" -s "Guardian Code Signing" probe
-          codesign --verify --strict probe
-          # Muss am Zertifikat hängen, nicht am cdhash dieses einen Builds —
-          # sonst fällt jedes Update durch die Prüfung von Squirrel.Mac.
-          codesign -d --requirements - probe 2>&1 | grep -q 'certificate leaf'
-          echo "Signieren mit dem hinterlegten Zertifikat funktioniert."

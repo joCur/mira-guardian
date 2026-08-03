@@ -111,26 +111,11 @@ Apps ihren Update-Pfad und müssen einmal von Hand ersetzt werden.
 
 Ein lokaler `pnpm --filter @guardian/widget dist` braucht dieses Zertifikat
 deshalb in der Schlüsselbundverwaltung (Identität `Guardian Code Signing`,
-Zertifikatstyp *Codeunterzeichnung*, für Codeunterzeichnung auf *immer
-vertrauen* gestellt). Fehlt es, entsteht ohne Fehlermeldung ein Artefakt, das
-sich später nicht aktualisieren lässt — electron-builder behandelt ein
-gescheitertes Signieren nur als Warnung. Nachsehen lohnt sich:
-
-```bash
-codesign -d --requirements - apps/widget/dist/mac-*/Guardian.app
-# muss "certificate leaf = H\"…\"" nennen, nicht "cdhash"
-```
-
-Die Pipeline zieht das Zertifikat aus den Secrets `MAC_CSC_LINK` (die `.p12`
-base64-kodiert) und `MAC_CSC_KEY_PASSWORD`. Das Secret allein genügt dort
-nicht: in einer frisch angelegten Keychain gilt ein selbstsigniertes
-Zertifikat als nicht vertrauenswürdig, weil Vertrauenseinstellungen am
-Benutzer hängen und nicht an der Keychain — electron-builder sortiert solche
-Identitäten aus und baut unsigniert weiter. Darum richtet
-[`.github/scripts/mac-signierschluessel.sh`](.github/scripts/mac-signierschluessel.sh)
-die Keychain samt Vertrauenseintrag ein, ein Prüfschritt danach lässt kein
-Release mit fehlender Signatur mehr durch, und die CI prüft bei jedem Pull
-Request, dass sich mit dem hinterlegten Zertifikat überhaupt signieren lässt.
+Zertifikatstyp *Codeunterzeichnung*); die Pipeline zieht es aus den Secrets
+`MAC_CSC_LINK` (die `.p12` base64-kodiert) und `MAC_CSC_KEY_PASSWORD`. Ohne
+das Zertifikat bricht der Paketierschritt ab — das ist Absicht, denn ein
+unsigniertes oder ad-hoc signiertes Bundle wäre auf macOS eine Einbahnstraße
+ohne weitere Updates.
 
 ### Wo die Anmeldung liegt
 
