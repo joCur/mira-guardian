@@ -89,6 +89,25 @@ ausführen*.
 Ein Auto-Update ist nicht eingebaut: Für eine neue Version das aktuelle
 Artefakt herunterladen und die App ersetzen.
 
+### Wo die Anmeldung liegt
+
+Gerätetoken und Server-Adresse stehen außerhalb der App und überleben das
+Ersetzen des Artefakts:
+
+| System | Datei |
+|---|---|
+| macOS | `~/Library/Application Support/de.mediainterface.mira-guardian/config.json` |
+| Windows | `%APPDATA%\de.mediainterface.mira-guardian\config.json` |
+| Linux | `~/.config/de.mediainterface.mira-guardian/config.json` |
+
+Der Ordner ist nach der appId benannt und nicht nach dem Anzeigenamen der App —
+sonst würde eine Umbenennung (die App hieß anfangs *Memory-Bank Hüter*) auf
+einen leeren Ordner zeigen und wie ein Abmelden wirken. Wer aus einer solchen
+Version kommt, wird beim ersten Start automatisch übernommen; die alte Datei
+bleibt liegen. Ein Backup der Anmeldung ist ein Kopieren dieser Datei.
+
+Ist sie trotzdem verloren: [Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
+
 ## Konfiguration
 
 | Variable | Standard | Bedeutung |

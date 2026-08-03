@@ -77,6 +77,35 @@ curl -s localhost:4000/health             # {"ok":true,"version":"0.1.11"}
 Dieselbe Angabe steht im Widget im Hüter-Tab unter „Verbindung", neben der
 Version der App. Weichen beide voneinander ab, weist die App darauf hin.
 
+## Anmeldung eines Hüters wiederherstellen
+
+Der reguläre Weg auf ein neues Gerät ist ein Zugangscode, den ein bereits
+angemeldeter Hüter im Hüter-Tab ausstellt. Der legt allerdings ein **neues**
+Hüter-Profil an — für einen Hüter, der schon existiert und nur seine
+Widget-Config verloren hat, ist er also falsch: die bisherigen Bewertungen
+hingen am alten Profil. Für den Gründungs-Hüter kommt hinzu, dass sein
+Setup-Code verbraucht ist und `/auth/init` eine initialisierte Instanz ablehnt.
+
+Das Gerätetoken steht in diesem Fall noch in der Datenbank und lässt sich wieder
+eintragen. Auf dem Server ausgeben lassen:
+
+```bash
+cd ~/mira-guardian
+docker compose exec server node -e "const db=require('better-sqlite3')('/data/guardian.sqlite');console.log(db.prepare('SELECT g.email, d.token FROM device d JOIN guardian g ON g.id = d.guardian_id WHERE g.email = ?').all(process.argv[1]))" '<mail@example.com>'
+```
+
+Das Token gehört auf dem Arbeitsplatz in die `config.json` des Widgets
+([Ablageort](../README.md#wo-die-anmeldung-liegt)) — die App muss dafür beendet
+sein, sie schreibt die Datei beim Beenden zurück:
+
+```json
+{ "token": "<token aus der Abfrage>", "serverUrl": "http://<server>:4000" }
+```
+
+Beim nächsten Start ist das Gerät wieder mit demselben Hüter-Profil verknüpft,
+Bewertungen und Gründungs-Rolle inklusive. Das Token ist ein Geheimnis wie ein
+Passwort: nicht über Chat oder Ticket weitergeben.
+
 ## Backup und Umzug auf einen anderen Server
 
 Der Container **muss dafür gestoppt sein**: SQLite läuft im WAL-Modus, ein
