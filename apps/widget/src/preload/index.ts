@@ -22,4 +22,8 @@ contextBridge.exposeInMainWorld("guardian", {
   onOpenChange: (cb: (changeId: string) => void) => on("guardian:openChange", cb),
   hideWindow: () => ipcRenderer.invoke("guardian:hideWindow"),
   openExternal: (url: string) => ipcRenderer.invoke("guardian:openExternal", url),
+  getUpdateStatus: () => ipcRenderer.invoke("guardian:getUpdateStatus"),
+  checkForUpdate: () => ipcRenderer.invoke("guardian:checkForUpdate"),
+  installUpdate: () => ipcRenderer.invoke("guardian:installUpdate"),
+  onUpdateStatus: (cb: (s: unknown) => void) => on("guardian:updateStatus", cb),
 });

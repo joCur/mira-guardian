@@ -91,22 +91,71 @@ jobs:
       - run: pnpm --filter @guardian/shared build
       - run: pnpm --filter @guardian/widget build
 
-      - name: Desktop-App paketieren
+      # Die Keychain wird selbst aufgesetzt, statt CSC_LINK an electron-builder
+      # zu geben: ein selbstsigniertes Zertifikat braucht einen
+      # Vertrauenseintrag, sonst wird es als nicht vertrauenswürdig aussortiert
+      # und der Build läuft ohne Signatur weiter (Begründung im Skript).
+      - name: Signierschlüssel einrichten (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CERT_P12_BASE64: ${{ secrets.MAC_CSC_LINK }}
+          CERT_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        run: .github/scripts/mac-signierschluessel.sh
+
+      # macOS getrennt, weil nur dort signiert wird: das selbstsignierte
+      # Zertifikat auch für Windows einzusetzen brächte nichts (SmartScreen
+      # kennt es ohnehin nicht), würde aber die Signaturprüfung des
+      # Windows-Updaters daran binden.
+      - name: Desktop-App paketieren (macOS, signiert)
+        if: runner.os == 'macOS'
         run: pnpm --filter @guardian/widget exec electron-builder --config electron-builder.yml --publish never
         env:
-          # Unsigniert bauen, solange kein Apple-Zertifikat hinterlegt ist.
-          # Mit CSC_LINK/CSC_KEY_PASSWORD als Secrets entfällt diese Zeile.
+          # Bewusst kein CSC_LINK: das würde electron-builder dazu bringen, die
+          # .p12 in eine eigene Keychain ohne Vertrauenseintrag zu importieren.
+          # CSC_KEYCHAIN zeigt auf die vorbereitete Keychain.
+          CSC_KEYCHAIN: ${{ env.CSC_KEYCHAIN }}
+
+      # electron-builder behandelt ein fehlgeschlagenes Signieren nur als
+      # Warnung. Ohne diese Prüfung landet ein Bundle im Release, das sich nie
+      # selbst aktualisieren kann — genau so entstanden zwei Releases, deren
+      # Signatur macOS für beschädigt hielt.
+      - name: Signatur und Update-Anforderung prüfen (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          APP="$(find apps/widget/dist -maxdepth 2 -name 'Guardian.app' -print -quit)"
+          [ -n "$APP" ] || { echo "Kein Guardian.app im dist-Verzeichnis." >&2; exit 1; }
+          codesign --verify --strict --deep --verbose=1 "$APP"
+          codesign -dvv "$APP" 2>&1 | grep -q 'Authority=Guardian Code Signing'
+          # Der eigentliche Prüfstein: Squirrel.Mac lässt ein Update nur durch,
+          # wenn die Anforderung am Zertifikat hängt und nicht am cdhash eines
+          # einzelnen Builds.
+          codesign -d --requirements - "$APP" 2>&1 | grep -q 'certificate leaf'
+          echo "Signatur in Ordnung, Update-Anforderung hängt am Zertifikat: $APP"
+
+      - name: Desktop-App paketieren (Windows/Linux, unsigniert)
+        if: runner.os != 'macOS'
+        run: pnpm --filter @guardian/widget exec electron-builder --config electron-builder.yml --publish never
+        env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
+          # latest*.yml und die blockmap-Dateien gehören zwingend ins Release:
+          # die yml ist der Kanal, über den installierte Apps von einer neuen
+          # Version erfahren, die blockmap spart beim Laden die unveränderten
+          # Blöcke. Die drei Betriebssysteme schreiben verschiedene yml-Namen
+          # (latest.yml, latest-mac.yml, latest-linux.yml) und kommen sich beim
+          # Zusammenführen der Artefakte deshalb nicht in die Quere.
           path: |
             apps/widget/dist/*.dmg
             apps/widget/dist/*.zip
             apps/widget/dist/*.exe
             apps/widget/dist/*.AppImage
             apps/widget/dist/*.deb
+            apps/widget/dist/latest*.yml
+            apps/widget/dist/*.blockmap
           if-no-files-found: error
           retention-days: 7
 
@@ -137,9 +186,12 @@ jobs:
             docker pull ghcr.io/${{ github.repository_owner }}/mira-guardian-server:${{ needs.version.outputs.version }}
             ```
 
-            **Desktop-Apps** — ad-hoc signiert, aber nicht notarisiert.
-            macOS: App nach `/Applications` ziehen, dann einmalig
+            **Desktop-Apps** — mit eigenem Zertifikat signiert, aber nicht
+            notarisiert. macOS: App nach `/Applications` ziehen, dann einmalig
             `xattr -dr com.apple.quarantine /Applications/Guardian.app`
             (oder Rechtsklick → Öffnen). Windows: SmartScreen →
             *Weitere Informationen* → *Trotzdem ausführen*.
-            Kein Auto-Update — App zum Aktualisieren ersetzen.
+
+            Das ist nur beim ersten Mal nötig: Eine installierte App holt neue
+            Versionen selbst und meldet sie in der Titelleiste. Ausnahmen sind
+            das portable EXE und das DEB-Paket — die bleiben Handarbeit.
