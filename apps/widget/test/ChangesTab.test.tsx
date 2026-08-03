@@ -117,3 +117,160 @@ describe("ChangesTab mit einer Änderung aus dem Verlauf", () => {
     expect(screen.queryByText("AUS DEM VERLAUF")).toBeNull();
   });
 });
+
+// Records desselben Typs liegen auf verschiedenen Ebenen — in der Liste steht
+// nur der Dateiname, die Ebene muss also dazu.
+describe("ChangesTab mit Ebenen, Suche und Filter", () => {
+  const web = change("c1", { filePath: "apps/web/docs/decisions/adr.md", summary: "Icons vereinheitlicht" });
+  const nlp = change("c2", { filePath: "services/nlp/docs/learnings/tokenizer.md", summary: "Tokenizer-Falle", authorName: "Bernd" });
+  const root = change("c3", { filePath: "docs/processes/release.md", summary: "Freigabe angepasst" });
+  const drei = (selectedId: string | null = "c1") =>
+    render(<ChangesTab toRate={[web, nlp, root]} acceptedByMe={[]} selectedId={selectedId}
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+
+  it("names the level of every record", () => {
+    drei();
+    expect(screen.getAllByText("apps/web").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("services/nlp").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Repo").length).toBeGreaterThan(0);
+  });
+
+  it("narrows the list by search text", async () => {
+    drei();
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+    expect(screen.queryByText("release.md")).toBeNull();
+  });
+
+  it("searches the author as well", async () => {
+    drei();
+    await userEvent.type(screen.getByLabelText("Suchen"), "bernd");
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+  });
+
+  it("narrows the list by level", async () => {
+    drei();
+    await userEvent.selectOptions(screen.getByLabelText("Ebene"), "lvl:services/nlp");
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+  });
+
+  it("narrows the list by type", async () => {
+    drei();
+    await userEvent.selectOptions(screen.getByLabelText("Typ"), "typ:Process");
+    expect(screen.getByText("release.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+  });
+
+  // Die Repo-Wurzel hat die leere Ebenen-Id — sie darf nicht mit „alle
+  // Ebenen" zusammenfallen, in keiner Richtung.
+  it("tells the repo root apart from all levels", async () => {
+    drei();
+    const ebene = screen.getByLabelText("Ebene");
+    await userEvent.selectOptions(ebene, "lvl:");
+    expect(screen.getByText("release.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+    await userEvent.selectOptions(ebene, "alle");
+    expect(screen.getByText("release.md")).toBeTruthy();
+    expect(screen.getByText("adr.md")).toBeTruthy();
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+  });
+
+  // Der Filter räumt die Liste auf, nicht die Anzeige — sonst verschwindet die
+  // Änderung, an der man gerade arbeitet.
+  it("keeps the open change visible even when it does not match", async () => {
+    drei("c1");
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    expect(screen.getByText("apps/web/docs/decisions/adr.md")).toBeTruthy();
+  });
+
+  it("stays operable when nothing matches", async () => {
+    drei(null);
+    await userEvent.type(screen.getByLabelText("Suchen"), "zzz");
+    expect(screen.getAllByText("Keine Änderung passt zur Suche.").length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: "Filter zurücksetzen" }));
+    expect(screen.getByText("adr.md")).toBeTruthy();
+    expect(screen.queryByText("Keine Änderung passt zur Suche.")).toBeNull();
+  });
+
+  // Die Zahl neben einer Ebene zeigte die Gesamtmenge weiter an, obwohl die
+  // Suche die Liste längst eingegrenzt hatte.
+  it("counts the dropdown entries under the running search", async () => {
+    drei();
+    const ebene = screen.getByLabelText("Ebene") as HTMLSelectElement;
+    expect([...ebene.options].map(o => o.textContent?.trim()))
+      .toEqual(["Alle Ebenen", "Repo (1)", "apps/web (1)", "services/nlp (1)"]);
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    expect([...ebene.options].map(o => o.textContent?.trim()))
+      .toEqual(["Alle Ebenen", "Repo (0)", "apps/web (0)", "services/nlp (1)"]);
+  });
+
+  it("keeps an empty level selectable only where it is the current choice", async () => {
+    drei();
+    const ebene = screen.getByLabelText("Ebene") as HTMLSelectElement;
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    const leer = [...ebene.options].find(o => o.textContent?.includes("Repo"))!;
+    expect(leer.disabled).toBe(true);
+    expect([...ebene.options].find(o => o.textContent?.includes("services/nlp"))!.disabled).toBe(false);
+  });
+
+  it("hides a dropdown that has only one choice", () => {
+    render(<ChangesTab toRate={[root]} acceptedByMe={[]} selectedId="c3"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.queryByLabelText("Ebene")).toBeNull();
+    expect(screen.queryByLabelText("Typ")).toBeNull();
+    expect(screen.getByLabelText("Suchen")).toBeTruthy();
+  });
+
+  // Sie wurde gezielt geöffnet — ein Filter darf sie nicht verschlucken.
+  it("never filters away the change opened from the history", async () => {
+    render(<ChangesTab toRate={[web]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+      selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "zzz");
+    expect(screen.getByText("AUS DEM VERLAUF")).toBeTruthy();
+    expect(screen.getByText("alt.md")).toBeTruthy();
+  });
+
+  // Die Suche reicht bis in das Dokument — dann muss die Zeile auch zeigen,
+  // warum der Eintrag stehen blieb.
+  it("finds a word that only exists in the document and shows the passage", async () => {
+    const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
+      oldMd: "Ab 500 Zeilen virtualisieren wir.",
+      newMd: "Ab 200 Zeilen virtualisieren wir. Darunter kostet es mehr als es bringt." });
+    render(<ChangesTab toRate={[doc, nlp]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "darunter");
+    expect(screen.getByText("tabellen.md")).toBeTruthy();
+    expect(screen.queryByText("tokenizer.md")).toBeNull();
+    expect(screen.getByText("TEXT")).toBeTruthy();
+    // Hervorgehoben in der Schreibweise des Dokuments.
+    expect(screen.getByText("Darunter")).toBeTruthy();
+  });
+
+  it("marks a passage that only exists in the previous version", async () => {
+    const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
+      oldMd: "Ab 500 Zeilen virtualisieren wir.", newMd: "Ab 200 Zeilen virtualisieren wir." });
+    render(<ChangesTab toRate={[doc]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "500");
+    expect(screen.getByText("ALT")).toBeTruthy();
+  });
+
+  it("shows no passage when the hit is visible in the row anyway", async () => {
+    const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
+      newMd: "Ab 200 Zeilen virtualisieren wir." });
+    render(<ChangesTab toRate={[doc]} acceptedByMe={[]} selectedId="c1"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "schwelle");
+    expect(screen.getByText("tabellen.md")).toBeTruthy();
+    expect(screen.queryByText("TEXT")).toBeNull();
+  });
+
+  it("shows the empty state, not the filter, when there is nothing at all", () => {
+    render(<ChangesTab toRate={[]} acceptedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.getByText("Keine offenen Änderungen")).toBeTruthy();
+    expect(screen.queryByLabelText("Suchen")).toBeNull();
+  });
+});
