@@ -46,15 +46,14 @@ function Tafel({ seite, stand, alt, onGross, einzeln }:
         <>
           <button type="button" onClick={() => onGross(stand.url)}
             className={`${BILDFLAECHE} w-full cursor-zoom-in`} title="Klicken zum Vergrößern">
-            <img src={stand.url} alt={alt} className="max-h-[300px] w-full object-contain"
+            <img src={stand.url} alt={alt} className="max-h-[420px] w-full object-contain"
               onLoad={e => {
                 const el = e.currentTarget;
                 if (el.naturalWidth) setMasse(`${el.naturalWidth} × ${el.naturalHeight}`);
               }} />
           </button>
-          {/* Nebeneinander bekommt jedes Bild nur die halbe Breite. Bei einem
-              breiten Diagramm sind Details erst groß erkennbar — das muss
-              dastehen, sonst sucht niemand danach. */}
+          {/* Auch über die volle Spaltenbreite bleibt ein Diagramm mit vielen
+              Kästchen klein — der Weg zur großen Ansicht muss dastehen. */}
           <span className="block text-[10.5px] text-ctp-overlay0 mt-1">Klicken zum Vergrößern</span>
         </>
       )}
@@ -64,8 +63,12 @@ function Tafel({ seite, stand, alt, onGross, einzeln }:
 
 /**
  * Bilder lassen sich nicht zeilenweise vergleichen. Statt eines Textdiffs
- * stehen hier beide Fassungen nebeneinander — und wo es nur eine gibt (neu
+ * stehen hier beide Fassungen untereinander — und wo es nur eine gibt (neu
  * angelegt, gelöscht, nur verschoben), eben nur diese.
+ *
+ * Untereinander statt nebeneinander, weil Diagramme breit sind: Auf halber
+ * Spaltenbreite schrumpfen sie so weit, dass die Beschriftungen der Kästchen
+ * nicht mehr zu lesen sind.
  */
 export function BildVergleich({ change }: { change: ChangeWithVotes }) {
   const [gross, setGross] = useState<string | null>(null);
@@ -82,7 +85,7 @@ export function BildVergleich({ change }: { change: ChangeWithVotes }) {
 
   return (
     <div>
-      <div className={einzeln ? "" : "grid grid-cols-2 gap-4"}>
+      <div className={einzeln ? "" : "space-y-4"}>
         {zeigeVorher && <Tafel seite="vorher" stand={vorher} alt={`${name} vorher`} onGross={setGross} einzeln={einzeln} />}
         {zeigeNachher && <Tafel seite="nachher" stand={nachher} alt={`${name} nachher`} onGross={setGross} einzeln={einzeln} />}
       </div>

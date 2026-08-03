@@ -160,6 +160,9 @@ export class Store {
   setBaseline(id: string, oldMd: string) {
     this.db.prepare("UPDATE change_item SET old_md = ? WHERE id = ?").run(oldMd, id);
   }
+  clearContent(id: string) {
+    this.db.prepare("UPDATE change_item SET old_md = NULL, new_md = NULL WHERE id = ?").run(id);
+  }
   // Bewertungsverlauf eines Hüters: nur abgegebene Bewertungen, neueste zuerst.
   listVotesByGuardian(guardianId: string): Array<Vote & { change: Change }> {
     const rows = this.db.prepare(`

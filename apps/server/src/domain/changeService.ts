@@ -103,6 +103,24 @@ export class ChangeService {
     return added;
   }
 
+  /**
+   * Altlast aufräumen: Bilder, die vor der Bildanzeige erfasst wurden, tragen
+   * ihren Binärinhalt als beschädigte Zeichenkette in der Datenbank. Angezeigt
+   * wird der nicht mehr — die Volltextsuche liest ihn aber weiter mit und
+   * liefert dann Treffer mitten im Bildrauschen. Liefert die Zahl der
+   * bereinigten Einträge.
+   */
+  verwerfeBildtexte(): number {
+    let bereinigt = 0;
+    for (const c of this.store.listAllChanges()) {
+      if (!istBilddatei(c.filePath)) continue;
+      if (c.oldMd === null && c.newMd === null) continue;
+      this.store.clearContent(c.id);
+      bereinigt++;
+    }
+    return bereinigt;
+  }
+
   // Altlast aufräumen: Bis die Umbenennungs-Flags von ADO ausgewertet wurden,
   // landete die Quellseite jeder Verschiebung als Änderung ohne alten und ohne
   // neuen Inhalt in der Liste. Solche Einträge zeigen nichts an und lassen sich

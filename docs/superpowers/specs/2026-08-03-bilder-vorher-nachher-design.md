@@ -36,9 +36,27 @@ Bind-Mount auf dem Server und wüchse pro Bildfassung um hunderte Kilobyte,
 während ADO zur Anzeigezeit ohnehin erreichbar ist. Der Server hält die zuletzt
 geholten Bilder im Speicher, damit wiederholtes Ansehen ADO nicht belastet.
 
-Dargestellt wird **nebeneinander** (vom User gewählt), mit Klick zum
-Vergrößern. Bei nur einer Fassung — neu angelegt, gelöscht, nur verschoben —
-steht nur diese da.
+Dargestellt wird **untereinander**, mit Klick zum Vergrößern. Bei nur einer
+Fassung — neu angelegt, gelöscht, nur verschoben — steht nur diese da.
+Nebeneinander war zuerst gewählt und am echten Diagramm verworfen: Auf halber
+Spaltenbreite schrumpfen die Kästchen so weit, dass ihre Beschriftung nicht
+mehr lesbar ist.
+
+## Bestandsdaten
+
+Einträge, die vor dieser Änderung erfasst wurden, funktionieren mit:
+
+- Die Anzeige entscheidet am Dateipfad, nicht an einem Datenbankfeld — ein
+  bestehender Bildeintrag zeigt nach dem Update den Vergleich, ohne dass er neu
+  eingelesen werden müsste.
+- Fehlt `baselineCommitId` (bei allen Bestandseinträgen), wird der Commit der
+  Änderung als Bezugspunkt genommen. Bei einem Bild, das seit dem Erfassen
+  mehrfach geändert wurde, zeigt die Vorher-Seite dann den Stand vor dem
+  jüngsten Commit statt vor dem ersten. Der erste ist für Bestandseinträge
+  nicht mehr rekonstruierbar.
+- Der beschädigte Binärinhalt bleibt sonst in der Datenbank stehen und würde
+  von der Volltextsuche weiter mitgelesen. `verwerfeBildtexte()` räumt ihn beim
+  Serverstart einmalig weg — die Einträge selbst bleiben samt Bewertungen.
 
 ## Architektur
 

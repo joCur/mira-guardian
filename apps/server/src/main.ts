@@ -36,6 +36,8 @@ async function bootstrap() {
   if (purged > 0) console.log(`▸ ${purged} Änderungen ohne Inhalt entfernt`);
   const repaired = changeService.repairMissingVotes(now());
   if (repaired > 0) console.log(`▸ ${repaired} fehlende Bewertungen nachgezogen`);
+  const bereinigt = changeService.verwerfeBildtexte();
+  if (bereinigt > 0) console.log(`▸ ${bereinigt} Bilder aus der Zeit vor der Bildanzeige bereinigt`);
   const hub = new RealtimeHub();
   const ado = new AdoClient(config);
   const poller = new AdoPoller(config, store, changeService, ado, now,
