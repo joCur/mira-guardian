@@ -109,7 +109,16 @@ getrennte Ordner; eine vorhandene Anmeldung wird beim ersten Start übernommen,
 die alte Datei bleibt liegen. Ein Backup der Anmeldung ist ein Kopieren dieser
 Datei.
 
-Ist sie trotzdem verloren: [Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
+### Neuer Rechner, verlorene Anmeldung
+
+Im Hüter-Tab stellt **Gerät verknüpfen** einen Zugangscode für ein bestehendes
+Profil aus — für einen Kollegen oder für sich selbst, solange noch ein Gerät
+angemeldet ist. Er gilt 24 Stunden und einmalig; das Profil bleibt dasselbe,
+Bewertungen und Gründungsrolle kommen mit. **Meine Geräte** zeigt alle
+verknüpften Geräte mit letztem Kontakt und entzieht einzelnen den Zugang.
+
+Ist kein Gerät mehr übrig, stellt der Betreiber den Code am Server aus:
+[Anmeldung wiederherstellen](deploy/README.md#anmeldung-eines-hüters-wiederherstellen).
 
 ## Konfiguration
 

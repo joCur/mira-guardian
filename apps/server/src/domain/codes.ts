@@ -1,8 +1,15 @@
 const ALPHABET = "ACDEFHJKMNPRTWXY37";
 
-export function generateCode(prefix: string, rng: () => number = Math.random): string {
+// Vier Zeichen aus 18 sind ~105.000 Möglichkeiten — abtippbar und in Verbindung
+// mit dem Versuchslimit auf /auth/redeem ausreichend für eine Einladung, die
+// erst ein Profil anlegt. Ein Code, der ein *bestehendes* Profil überträgt,
+// nimmt acht Zeichen (~1,1e10) und wird in Vierergruppen dargestellt.
+export function generateCode(prefix: string, chars = 4, rng: () => number = Math.random): string {
   let s = "";
-  for (let i = 0; i < 4; i++) s += ALPHABET[Math.floor(rng() * ALPHABET.length)];
+  for (let i = 0; i < chars; i++) {
+    if (i > 0 && i % 4 === 0) s += "-";
+    s += ALPHABET[Math.floor(rng() * ALPHABET.length)];
+  }
   return `${prefix}-${s}`;
 }
 

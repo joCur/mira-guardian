@@ -11,7 +11,7 @@ describe("generateCode", () => {
   it("uses prefix and 4 chars from the safe alphabet", () => {
     const seq = [0, 0, 0, 0];
     let i = 0;
-    const code = generateCode("MB", () => seq[i++] / 18);
+    const code = generateCode("MB", 4, () => seq[i++] / 18);
     expect(code).toBe("MB-AAAA");
   });
 });

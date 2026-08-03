@@ -8,14 +8,17 @@ CREATE TABLE IF NOT EXISTS guardian (
   initials TEXT NOT NULL, avatar_color TEXT NOT NULL,
   created_at TEXT NOT NULL, is_founder INTEGER NOT NULL DEFAULT 0
 );
+-- guardian_id leer = Einladung, die ein neues Hüter-Profil anlegt; gesetzt =
+-- der Code verknüpft ein weiteres Gerät mit genau diesem bestehenden Profil.
 CREATE TABLE IF NOT EXISTS invite_code (
   code TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL,
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
-  redeemed_at TEXT, redeemed_by TEXT
+  redeemed_at TEXT, redeemed_by TEXT,
+  guardian_id TEXT, expires_at TEXT
 );
 CREATE TABLE IF NOT EXISTS device (
   id TEXT PRIMARY KEY, guardian_id TEXT NOT NULL, token TEXT NOT NULL UNIQUE,
-  label TEXT NOT NULL, last_seen_at TEXT NOT NULL
+  label TEXT NOT NULL, last_seen_at TEXT NOT NULL, created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS cycle (
   id TEXT PRIMARY KEY, iso_week TEXT NOT NULL, starts_at TEXT NOT NULL,

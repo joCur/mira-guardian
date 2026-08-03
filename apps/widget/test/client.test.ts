@@ -42,6 +42,44 @@ describe("ApiClient", () => {
     expect(seenBody.setupCode).toBe("MB-INIT-7743");
     expect(r.deviceToken).toBe("t");
   });
+  // Der Gerätename landet in der Geräteliste des Hüters — ohne ihn steht dort
+  // ein Platzhalter, und niemand weiß, welchen Rechner er da entzieht.
+  it("schickt den Gerätenamen beim Verknüpfen mit", async () => {
+    let seenBody: any;
+    const c = new ApiClient("http://s", null, fake(200, { deviceToken: "t", guardian: { id: "g" } },
+      (_u, init) => { seenBody = JSON.parse(init.body); }));
+    await c.redeem("MB-HWFT-NMR7", "MacBook-Pro (macOS)");
+    expect(seenBody).toEqual({ code: "MB-HWFT-NMR7", deviceLabel: "MacBook-Pro (macOS)" });
+  });
+
+  // Kennt die App den Namen nicht, gehört kein leeres Feld in die Anfrage.
+  it("lässt einen unbekannten Gerätenamen weg", async () => {
+    let seenBody: any;
+    const c = new ApiClient("http://s", null, fake(200, { deviceToken: "t", guardian: { id: "g" } },
+      (_u, init) => { seenBody = JSON.parse(init.body); }));
+    await c.redeem("MB-HWFT-NMR7", "");
+    expect(seenBody).toEqual({ code: "MB-HWFT-NMR7" });
+  });
+
+  it("stellt einen Code für ein bestehendes Profil aus", async () => {
+    let url = "", init: any;
+    const c = new ApiClient("http://s", "tok", fake(200, { code: "MB-AAAA-AAAA", expiresAt: "x", guardianName: "Anna" },
+      (u, i) => { url = u; init = i; }));
+    const r = await c.relink("g1");
+    expect(url).toBe("http://s/guardians/g1/relink");
+    expect(r.code).toBe("MB-AAAA-AAAA");
+    // Ohne Nutzlast kein JSON-Content-Type: der Server antwortet darauf mit 400.
+    expect(init.body).toBeUndefined();
+    expect(init.headers["Content-Type"]).toBeUndefined();
+  });
+
+  it("entzieht einem Gerät den Zugang", async () => {
+    let url = "", method = "";
+    const c = new ApiClient("http://s", "tok", fake(200, { ok: true }, (u, init) => { url = u; method = init.method; }));
+    await c.revokeDevice("d2");
+    expect([method, url]).toEqual(["POST", "http://s/me/devices/d2/revoke"]);
+  });
+
   it("sends the bearer token for getMe", async () => {
     let seen = "";
     const c = new ApiClient("http://s", "tok", fake(200, { guardian: { id: "g1" } },

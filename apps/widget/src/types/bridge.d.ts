@@ -9,6 +9,8 @@ export interface ToastData {
 export interface GuardianBridge {
   getConfig(): Promise<{ token: string | null; serverUrl: string }>;
   getAppVersion(): Promise<string>;
+  /** Gerätename fürs Verknüpfen, z. B. "MacBook-Pro (macOS)". */
+  getDeviceLabel(): Promise<string>;
   setToken(token: string): Promise<void>;
   clearToken(): Promise<void>;
   setServerUrl(url: string): Promise<void>;
