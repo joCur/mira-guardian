@@ -2,17 +2,22 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GuardiansTab } from "../src/renderer/components/tabs/GuardiansTab.js";
+import type { UpdateStatus } from "../src/types/update.js";
 
 const guardians = [
   { id: "g1", name: "Jonas Curth", email: "j@x.de", initials: "JC", avatarColor: "#89b4fa", createdAt: "t", isFounder: true },
 ];
 
+const noUpdate: UpdateStatus = { phase: "idle", version: null, percent: 0, notesUrl: null, message: null };
+
 function setup(over: Partial<Parameters<typeof GuardiansTab>[0]> = {}) {
   const onSignOut = vi.fn(async () => {});
+  const onCheckUpdate = vi.fn();
   render(<GuardiansTab guardians={guardians} pending={[]} onInvite={vi.fn()}
     serverUrl="http://localhost:4000" onSignOut={onSignOut}
-    appVersion="0.1.0" serverVersion={null} {...over} />);
-  return { onSignOut };
+    appVersion="0.1.0" serverVersion={null}
+    update={noUpdate} onCheckUpdate={onCheckUpdate} {...over} />);
+  return { onSignOut, onCheckUpdate };
 }
 
 describe("GuardiansTab — Verbindung", () => {
@@ -85,5 +90,39 @@ describe("GuardiansTab — Version", () => {
     setup({ appVersion: "", serverVersion: "0.1.9" });
     expect(screen.getByText(/Widget unbekannt/)).toBeTruthy();
     expect(screen.queryByText(/auseinander/)).toBeNull();
+  });
+});
+
+// Der Hinweis in der Titelleiste erscheint nur bei einem gefundenen Update.
+// Wer wissen will, ob überhaupt geprüft wurde, schaut hier nach.
+describe("GuardiansTab — Aktualisierung", () => {
+  it("lässt von Hand nach Updates suchen", async () => {
+    const { onCheckUpdate } = setup();
+    expect(screen.getByText(/Noch nicht nach Updates gesucht/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Nach Updates suchen" }));
+    expect(onCheckUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("bestätigt den neuesten Stand", () => {
+    setup({ update: { phase: "current", version: null, percent: 0, notesUrl: null, message: null } });
+    expect(screen.getByText(/neueste Stand/)).toBeTruthy();
+  });
+
+  it("sperrt die Suche, solange sie läuft", () => {
+    setup({ update: { phase: "checking", version: null, percent: 0, notesUrl: null, message: null } });
+    expect(screen.getByRole("button", { name: "Nach Updates suchen" })).toHaveProperty("disabled", true);
+  });
+
+  // Ein Entwicklungsstart kann sich nicht selbst ersetzen — ein Knopf, der
+  // nur in einen Fehler laufen kann, gehört dort nicht hin.
+  it("bietet im Entwicklungsstart keine Suche an", () => {
+    setup({ update: { phase: "unsupported", version: null, percent: 0, notesUrl: null, message: null } });
+    expect(screen.queryByRole("button", { name: "Nach Updates suchen" })).toBeNull();
+    expect(screen.getByText(/nur in der installierten App/)).toBeTruthy();
+  });
+
+  it("nennt die Version, die geladen wird", () => {
+    setup({ update: { phase: "downloading", version: "0.1.9", percent: 30, notesUrl: null, message: null } });
+    expect(screen.getByText(/0\.1\.9 wird geladen … 30 %/)).toBeTruthy();
   });
 });

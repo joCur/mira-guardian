@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import type { Guardian } from "@guardian/shared";
+import type { UpdateStatus } from "../types/update.js";
 import { ApiClient, type MeetingResponse, type HistoryEntry } from "./api/client.js";
 import { subscribe } from "./api/ws.js";
 import { catchUpChanges } from "./api/catchUp.js";
 import { createGuardianStore } from "./store.js";
+import { useUpdateStatus } from "./useUpdateStatus.js";
 import { SetupDialog } from "./components/SetupDialog.js";
+import { UpdateBadge } from "./components/UpdateBadge.js";
 import { MainWindow, type Tab } from "./components/MainWindow.js";
 import { ChangesTab } from "./components/tabs/ChangesTab.js";
 import { MeetingTab } from "./components/tabs/MeetingTab.js";
@@ -45,6 +48,12 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   const [me, setMe] = useState<Guardian | null>(null);
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [tab, setTab] = useState<Tab>("changes");
+  // Update-Zustand und eigene Version sitzen hier, weil beide an zwei Stellen
+  // gebraucht werden: im Hinweis der Titelleiste und in der Versionsanzeige
+  // des Hüter-Tabs.
+  const update = useUpdateStatus();
+  const [appVersion, setAppVersion] = useState("");
+  useEffect(() => { void window.guardian.getAppVersion().then(setAppVersion).catch(() => {}); }, []);
 
   useEffect(() => {
     let alive = true;
@@ -99,14 +108,18 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   const openChange = (id: string) => { void store.getState().select(id).then(() => setTab("changes")); };
 
   return (
-    <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}>
+    <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}
+      titleBarExtra={<UpdateBadge status={update} currentVersion={appVersion}
+        onInstall={() => void window.guardian.installUpdate()}
+        onOpenNotes={(url) => void window.guardian.openExternal(url)} />}>
       {tab === "changes" && <ChangesTab toRate={state.toRate} acceptedByMe={state.acceptedByMe} selectedId={state.selectedId}
         fromHistory={state.fromHistory}
         guardianId={guardianId} guardians={guardians} onSelect={(id) => void store.getState().select(id)}
         onVote={(id, s, c) => store.getState().castVote(id, s, c)} />}
       {tab === "meeting" && <MeetingPanel api={api} guardians={guardians} onOpen={openChange} />}
       {tab === "history" && <HistoryPanel api={api} onOpen={openChange} />}
-      {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onSignOut={onSignOut} />}
+      {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onSignOut={onSignOut}
+        appVersion={appVersion} update={update} />}
     </MainWindow>
   );
 }
@@ -122,20 +135,20 @@ function HistoryPanel({ api, onOpen }: { api: ApiClient; onOpen: (id: string) =>
   useEffect(() => { void api.getMyHistory().then(r => setEntries(r.entries)).catch(() => {}); }, [api]);
   return entries ? <HistoryTab entries={entries} onOpen={onOpen} /> : null;
 }
-function GuardiansPanel({ api, serverUrl, onSignOut }:
-  { api: ApiClient; serverUrl: string; onSignOut: () => Promise<void> }) {
+function GuardiansPanel({ api, serverUrl, onSignOut, appVersion, update }:
+  { api: ApiClient; serverUrl: string; onSignOut: () => Promise<void>;
+    appVersion: string; update: UpdateStatus }) {
   const [d, setD] = useState<any>(null);
-  const [appVersion, setAppVersion] = useState("");
   // null heißt "nicht bekannt" — der Server ist nicht erreichbar oder älter als
   // diese Anzeige. Beides darf den Tab nicht aufhalten.
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const load = () => api.getGuardians().then(setD);
   useEffect(() => {
     load();
-    void window.guardian.getAppVersion().then(setAppVersion).catch(() => {});
     void api.getServerVersion().then(setServerVersion).catch(() => setServerVersion(null));
   }, [api]);
   return d ? <GuardiansTab guardians={d.guardians} pending={d.pending} serverUrl={serverUrl}
     onSignOut={onSignOut} onInvite={(n, e) => api.invite(n, e).then(load)}
-    appVersion={appVersion} serverVersion={serverVersion} /> : null;
+    appVersion={appVersion} serverVersion={serverVersion}
+    update={update} onCheckUpdate={() => void window.guardian.checkForUpdate()} /> : null;
 }

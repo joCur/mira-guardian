@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { Guardian } from "@guardian/shared";
+import type { UpdateStatus } from "../../../types/update.js";
 
 interface Props {
   guardians: Guardian[];
@@ -10,8 +11,25 @@ interface Props {
 const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).map(p => p[0]!.toUpperCase()).slice(0, 2).join("");
 
-export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOut, appVersion, serverVersion }:
-  Props & { serverUrl: string; onSignOut: () => Promise<void>; appVersion: string; serverVersion: string | null }) {
+/** Klartext zum Update-Zustand für die Versionsanzeige. */
+export function updateSummary(u: UpdateStatus): string {
+  switch (u.phase) {
+    // Aus dem Entwicklungsstart heraus gibt es keine Installation, die sich
+    // ersetzen ließe — die Suche würde nur ins Leere laufen.
+    case "unsupported": return "Aktualisierung nur in der installierten App.";
+    case "checking": return "Suche nach einer neueren Version …";
+    case "downloading": return `Version ${u.version} wird geladen … ${u.percent} %`;
+    case "ready": return `Version ${u.version} liegt bereit — der Hinweis oben startet die App neu.`;
+    case "current": return "Dies ist der neueste Stand.";
+    case "error": return `Die Suche ist gescheitert: ${u.message}`;
+    default: return "Noch nicht nach Updates gesucht.";
+  }
+}
+
+export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOut, appVersion, serverVersion,
+  update, onCheckUpdate }:
+  Props & { serverUrl: string; onSignOut: () => Promise<void>; appVersion: string; serverVersion: string | null;
+    update: UpdateStatus; onCheckUpdate: () => void }) {
   // Nur zwei bekannte, verschiedene Stände sind ein Hinweis. Ein Server, der
   // seine Version nicht nennt, ist älter als diese Anzeige, und die eigene
   // Version wird nachgeladen — beides sagt nichts darüber, ob die Stände
@@ -107,6 +125,21 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
                 hol die fehlende Seite auf den gleichen Stand.
               </div>
             )}
+            <div className="flex items-center gap-3 flex-wrap mt-2.5">
+              <span className={`text-[11.5px] leading-normal flex-1 min-w-[200px] ${
+                update.phase === "error" ? "text-ctp-yellow" : "text-ctp-overlay0"}`}>
+                {updateSummary(update)}
+              </span>
+              {/* Im Entwicklungsstart gibt es nichts zu suchen; während Suche
+                  und Download läuft die Prüfung schon. */}
+              {update.phase !== "unsupported" && (
+                <button onClick={onCheckUpdate}
+                  disabled={update.phase === "checking" || update.phase === "downloading"}
+                  className="rounded-lg px-3.5 py-[7px] text-[12px] font-semibold whitespace-nowrap transition-colors border border-ctp-surface1 text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0 disabled:text-ctp-overlay0 disabled:hover:bg-transparent disabled:cursor-not-allowed">
+                  Nach Updates suchen
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
