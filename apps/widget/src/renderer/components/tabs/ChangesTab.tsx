@@ -56,7 +56,7 @@ export function ChangesTab(p: Props) {
   // landet der Fallback auf der ersten offenen Änderung — also einer anderen
   // als der angeklickten.
   const alle = [...p.toRate, ...p.acceptedByMe, ...(p.fromHistory ? [p.fromHistory] : [])];
-  const optionen = filterOptions(alle);
+  const optionen = filterOptions(alle, filter);
   const toRate = applyFilter(p.toRate, filter);
   const acceptedByMe = applyFilter(p.acceptedByMe, filter);
   // Gefiltert wird die Liste, nicht die Anzeige: eine offene Änderung bleibt

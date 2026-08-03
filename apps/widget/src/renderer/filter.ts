@@ -93,18 +93,26 @@ export function applyFilter<T extends Filterable>(items: T[], f: Filter): T[] {
 export interface FilterOption { value: string; label: string; count: number }
 
 /**
- * Nur Ebenen und Typen anbieten, die in den Einträgen vorkommen — ein Filter
- * ohne Treffer ist im Auswahlfeld eine Sackgasse. Die Anzahl steht dabei.
+ * Ebenen und Typen, die in den Einträgen vorkommen, jeweils mit der Anzahl der
+ * Treffer, die eine Auswahl **jetzt** bringen würde: gezählt wird unter den
+ * anderen aktiven Filtern, nur der eigene bleibt außen vor. Sonst stünde neben
+ * einer Ebene weiter die Gesamtzahl, während die Liste längst kürzer ist.
+ *
+ * Die Auswahl selbst bleibt vollständig, auch wenn eine Anzahl auf null fällt —
+ * sonst spränge das Feld beim Tippen und die eigene Auswahl verschwände darin.
  */
-export function filterOptions(items: Filterable[]): { levels: FilterOption[]; types: FilterOption[] } {
+export function filterOptions(items: Filterable[], f: Filter = NO_FILTER):
+  { levels: FilterOption[]; types: FilterOption[] } {
   const levels = new Map<string, FilterOption>();
   const types = new Map<string, FilterOption>();
   for (const i of items) {
     const lv = memoryLevel(i.filePath);
+    anlegen(levels, lv.id, lv.label);
     const t = fileType(i.filePath).label;
-    bump(levels, lv.id, lv.label);
-    bump(types, t, t);
+    anlegen(types, t, t);
   }
+  for (const i of applyFilter(items, { ...f, level: null })) zaehlen(levels, memoryLevel(i.filePath).id);
+  for (const i of applyFilter(items, { ...f, type: null })) zaehlen(types, fileType(i.filePath).label);
   return {
     // Die Wurzel zuerst, danach alphabetisch — so steht apps/… immer an
     // derselben Stelle, egal welche Änderung gerade oben in der Liste liegt.
@@ -114,8 +122,10 @@ export function filterOptions(items: Filterable[]): { levels: FilterOption[]; ty
   };
 }
 
-function bump(map: Map<string, FilterOption>, value: string, label: string) {
+function anlegen(map: Map<string, FilterOption>, value: string, label: string) {
+  if (!map.has(value)) map.set(value, { value, label, count: 0 });
+}
+function zaehlen(map: Map<string, FilterOption>, value: string) {
   const found = map.get(value);
   if (found) found.count++;
-  else map.set(value, { value, label, count: 1 });
 }

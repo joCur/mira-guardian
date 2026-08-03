@@ -26,7 +26,13 @@ function Auswahl({ label, prefix, value, options, onChange, alleLabel }: {
       }}
       className={`${FELD} text-[11px] px-1.5 py-1 cursor-pointer min-w-0 flex-1`}>
       <option value={ALLE}>{alleLabel}</option>
-      {options.map(o => <option key={o.value} value={`${prefix}:${o.value}`}>{o.label} ({o.count})</option>)}
+      {/* Was gerade nichts trifft, bleibt sichtbar, aber unwählbar — außer es
+          ist die eigene Auswahl, sonst käme man aus ihr nicht mehr heraus. */}
+      {options.map(o => (
+        <option key={o.value} value={`${prefix}:${o.value}`} disabled={o.count === 0 && o.value !== value}>
+          {o.label} ({o.count})
+        </option>
+      ))}
     </select>
   );
 }

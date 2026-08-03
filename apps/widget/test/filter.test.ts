@@ -167,4 +167,33 @@ describe("filter/filterOptions", () => {
     expect(levels).toHaveLength(1);
     expect(types).toHaveLength(1);
   });
+
+  // Die Zahl neben einer Ebene muss beantworten „wie viele bleiben, wenn ich
+  // das hier wähle" — sonst steht dort die Gesamtzahl, während die Liste
+  // längst kürzer ist.
+  it("counts what the current search leaves over", () => {
+    const { levels, types } = filterOptions(list, { ...NO_FILTER, text: "b.md" });
+    expect(levels.map(l => [l.value, l.count])).toEqual([["", 0], ["apps/web", 1], ["services/nlp", 0]]);
+    expect(types.map(t => [t.value, t.count])).toEqual([["Decision", 1], ["Learning", 0]]);
+  });
+
+  // Sonst könnte man von einer gewählten Ebene nicht mehr auf eine andere
+  // wechseln, weil daneben überall 0 stünde.
+  it("ignores its own dimension when counting", () => {
+    const { levels } = filterOptions(list, { ...NO_FILTER, level: "apps/web" });
+    expect(levels.map(l => [l.value, l.count])).toEqual([["", 1], ["apps/web", 2], ["services/nlp", 1]]);
+  });
+
+  it("lets the other dimension narrow the counts", () => {
+    const { types } = filterOptions(list, { ...NO_FILTER, level: "apps/web" });
+    expect(types.map(t => [t.value, t.count])).toEqual([["Decision", 1], ["Learning", 1]]);
+  });
+
+  // Beim Tippen darf die Auswahl nicht schrumpfen — sonst springt das Feld.
+  it("keeps every option even at zero", () => {
+    const { levels, types } = filterOptions(list, { ...NO_FILTER, text: "kubernetes" });
+    expect(levels).toHaveLength(3);
+    expect(types).toHaveLength(2);
+    expect(levels.every(l => l.count === 0)).toBe(true);
+  });
 });

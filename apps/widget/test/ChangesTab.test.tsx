@@ -195,6 +195,27 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
     expect(screen.queryByText("Keine Änderung passt zur Suche.")).toBeNull();
   });
 
+  // Die Zahl neben einer Ebene zeigte die Gesamtmenge weiter an, obwohl die
+  // Suche die Liste längst eingegrenzt hatte.
+  it("counts the dropdown entries under the running search", async () => {
+    drei();
+    const ebene = screen.getByLabelText("Ebene") as HTMLSelectElement;
+    expect([...ebene.options].map(o => o.textContent?.trim()))
+      .toEqual(["Alle Ebenen", "Repo (1)", "apps/web (1)", "services/nlp (1)"]);
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    expect([...ebene.options].map(o => o.textContent?.trim()))
+      .toEqual(["Alle Ebenen", "Repo (0)", "apps/web (0)", "services/nlp (1)"]);
+  });
+
+  it("keeps an empty level selectable only where it is the current choice", async () => {
+    drei();
+    const ebene = screen.getByLabelText("Ebene") as HTMLSelectElement;
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    const leer = [...ebene.options].find(o => o.textContent?.includes("Repo"))!;
+    expect(leer.disabled).toBe(true);
+    expect([...ebene.options].find(o => o.textContent?.includes("services/nlp"))!.disabled).toBe(false);
+  });
+
   it("hides a dropdown that has only one choice", () => {
     render(<ChangesTab toRate={[root]} acceptedByMe={[]} selectedId="c3"
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);

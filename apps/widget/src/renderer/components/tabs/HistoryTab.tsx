@@ -24,7 +24,7 @@ export function HistoryTab({ entries, onOpen }:
     </EmptyState>
   );
 
-  const optionen = filterOptions(entries);
+  const optionen = filterOptions(entries, filter);
   const gezeigt = applyFilter(entries, filter);
   const gefiltert = isFiltering(filter);
 
