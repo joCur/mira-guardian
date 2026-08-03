@@ -70,9 +70,9 @@ cd deploy && docker compose up -d    # Server: feste Release-Version aus ghcr.io
 ```
 
 Desktop-Apps für macOS, Windows und Linux hängen an jedem
-[Release](../../releases). Sie sind **ad-hoc signiert, aber nicht
-notarisiert** — Gatekeeper und SmartScreen kennen den Herausgeber daher
-nicht:
+[Release](../../releases). Sie sind **mit einem eigenen Zertifikat signiert,
+aber nicht notarisiert** — Gatekeeper und SmartScreen kennen den Herausgeber
+daher nicht:
 
 **macOS:** App aus dem DMG nach `/Applications` ziehen, dann einmalig die
 Quarantäne-Markierung entfernen:
@@ -86,8 +86,36 @@ Alternativ Rechtsklick auf die App → *Öffnen* → *Öffnen* bestätigen.
 **Windows:** Im SmartScreen-Dialog *Weitere Informationen* → *Trotzdem
 ausführen*.
 
-Ein Auto-Update ist nicht eingebaut: Für eine neue Version das aktuelle
-Artefakt herunterladen und die App ersetzen.
+Das ist nur beim ersten Mal nötig — danach hält sich die App selbst aktuell.
+
+### Aktualisierung
+
+Die installierte App fragt beim Start und danach alle sechs Stunden beim
+Release-Kanal nach, lädt eine neuere Version im Hintergrund und meldet sie
+als Hinweis in der Titelleiste. Von dort führt ein Klick zu den
+Änderungshinweisen des Releases oder startet die App mit der neuen Version
+neu. Im Hüter-Tab steht daneben, wann zuletzt gesucht wurde, und lässt sich
+eine Suche auslösen.
+
+Zwei Varianten bleiben Handarbeit: das portable Windows-EXE (es hat keinen
+Installer, der sich ersetzen ließe) und das DEB-Paket (es gehört dem
+Paketmanager, der für ein Update nach Rechten fragen müsste).
+
+Auf macOS hängt die Aktualisierung am Zertifikat: Squirrel.Mac spielt ein
+Update nur ein, wenn es dieselbe Signatur trägt wie die laufende App. Dafür
+genügt ein selbstsigniertes Zertifikat — geprüft wird gegen die *Designated
+Requirement* der laufenden App, nicht gegen Apples Vertrauenskette. Notariat
+und Developer-ID ändern daran nichts; sie würden nur die Warnung beim ersten
+Öffnen ersparen. Wechselt das Zertifikat, verlieren alle bereits installierten
+Apps ihren Update-Pfad und müssen einmal von Hand ersetzt werden.
+
+Ein lokaler `pnpm --filter @guardian/widget dist` braucht dieses Zertifikat
+deshalb in der Schlüsselbundverwaltung (Identität `Guardian Code Signing`,
+Zertifikatstyp *Codeunterzeichnung*); die Pipeline zieht es aus den Secrets
+`MAC_CSC_LINK` (die `.p12` base64-kodiert) und `MAC_CSC_KEY_PASSWORD`. Ohne
+das Zertifikat bricht der Paketierschritt ab — das ist Absicht, denn ein
+unsigniertes oder ad-hoc signiertes Bundle wäre auf macOS eine Einbahnstraße
+ohne weitere Updates.
 
 ## Konfiguration
 

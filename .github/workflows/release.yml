@@ -91,22 +91,43 @@ jobs:
       - run: pnpm --filter @guardian/shared build
       - run: pnpm --filter @guardian/widget build
 
-      - name: Desktop-App paketieren
+      # macOS getrennt, weil nur dort signiert wird: CSC_LINK gilt auch als
+      # Authenticode-Zertifikat für Windows, und das selbstsignierte Zertifikat
+      # dort einzusetzen brächte nichts (SmartScreen kennt es ohnehin nicht),
+      # würde aber die Signaturprüfung des Windows-Updaters daran binden.
+      - name: Desktop-App paketieren (macOS, signiert)
+        if: runner.os == 'macOS'
         run: pnpm --filter @guardian/widget exec electron-builder --config electron-builder.yml --publish never
         env:
-          # Unsigniert bauen, solange kein Apple-Zertifikat hinterlegt ist.
-          # Mit CSC_LINK/CSC_KEY_PASSWORD als Secrets entfällt diese Zeile.
+          # Selbstsigniertes Zertifikat "Guardian Code Signing" aus den Secrets.
+          # Es hält die Update-Kette auf macOS zusammen (siehe electron-builder.yml)
+          # und darf sich deshalb nicht ändern, solange installierte Apps es prüfen.
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+
+      - name: Desktop-App paketieren (Windows/Linux, unsigniert)
+        if: runner.os != 'macOS'
+        run: pnpm --filter @guardian/widget exec electron-builder --config electron-builder.yml --publish never
+        env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
+          # latest*.yml und die blockmap-Dateien gehören zwingend ins Release:
+          # die yml ist der Kanal, über den installierte Apps von einer neuen
+          # Version erfahren, die blockmap spart beim Laden die unveränderten
+          # Blöcke. Die drei Betriebssysteme schreiben verschiedene yml-Namen
+          # (latest.yml, latest-mac.yml, latest-linux.yml) und kommen sich beim
+          # Zusammenführen der Artefakte deshalb nicht in die Quere.
           path: |
             apps/widget/dist/*.dmg
             apps/widget/dist/*.zip
             apps/widget/dist/*.exe
             apps/widget/dist/*.AppImage
             apps/widget/dist/*.deb
+            apps/widget/dist/latest*.yml
+            apps/widget/dist/*.blockmap
           if-no-files-found: error
           retention-days: 7
 
@@ -137,9 +158,12 @@ jobs:
             docker pull ghcr.io/${{ github.repository_owner }}/mira-guardian-server:${{ needs.version.outputs.version }}
             ```
 
-            **Desktop-Apps** — ad-hoc signiert, aber nicht notarisiert.
-            macOS: App nach `/Applications` ziehen, dann einmalig
+            **Desktop-Apps** — mit eigenem Zertifikat signiert, aber nicht
+            notarisiert. macOS: App nach `/Applications` ziehen, dann einmalig
             `xattr -dr com.apple.quarantine /Applications/Guardian.app`
             (oder Rechtsklick → Öffnen). Windows: SmartScreen →
             *Weitere Informationen* → *Trotzdem ausführen*.
-            Kein Auto-Update — App zum Aktualisieren ersetzen.
+
+            Das ist nur beim ersten Mal nötig: Eine installierte App holt neue
+            Versionen selbst und meldet sie in der Titelleiste. Ausnahmen sind
+            das portable EXE und das DEB-Paket — die bleiben Handarbeit.
