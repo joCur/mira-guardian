@@ -19,7 +19,9 @@ fürs Team-Meeting.
 
 Der Server erkennt Memory-Bank-Inhalte auf **jeder Ebene** des Repos —
 `docs/decisions/…` im Wurzelverzeichnis genauso wie
-`apps/<app>/docs/decisions/…`.
+`apps/<app>/docs/decisions/…`. Das Widget nennt diese Ebene an jedem Eintrag
+und lässt Änderungsliste und Verlauf danach filtern — ebenso nach Record-Typ
+und nach freiem Text über Pfad, Zusammenfassung, Autor und Kommentar.
 
 ## Entwicklung
 

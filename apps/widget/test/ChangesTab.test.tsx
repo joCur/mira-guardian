@@ -117,3 +117,104 @@ describe("ChangesTab mit einer Änderung aus dem Verlauf", () => {
     expect(screen.queryByText("AUS DEM VERLAUF")).toBeNull();
   });
 });
+
+// Records desselben Typs liegen auf verschiedenen Ebenen — in der Liste steht
+// nur der Dateiname, die Ebene muss also dazu.
+describe("ChangesTab mit Ebenen, Suche und Filter", () => {
+  const web = change("c1", { filePath: "apps/web/docs/decisions/adr.md", summary: "Icons vereinheitlicht" });
+  const nlp = change("c2", { filePath: "services/nlp/docs/learnings/tokenizer.md", summary: "Tokenizer-Falle", authorName: "Bernd" });
+  const root = change("c3", { filePath: "docs/processes/release.md", summary: "Freigabe angepasst" });
+  const drei = (selectedId: string | null = "c1") =>
+    render(<ChangesTab toRate={[web, nlp, root]} acceptedByMe={[]} selectedId={selectedId}
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+
+  it("names the level of every record", () => {
+    drei();
+    expect(screen.getAllByText("apps/web").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("services/nlp").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Repo").length).toBeGreaterThan(0);
+  });
+
+  it("narrows the list by search text", async () => {
+    drei();
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+    expect(screen.queryByText("release.md")).toBeNull();
+  });
+
+  it("searches the author as well", async () => {
+    drei();
+    await userEvent.type(screen.getByLabelText("Suchen"), "bernd");
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+  });
+
+  it("narrows the list by level", async () => {
+    drei();
+    await userEvent.selectOptions(screen.getByLabelText("Ebene"), "lvl:services/nlp");
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+  });
+
+  it("narrows the list by type", async () => {
+    drei();
+    await userEvent.selectOptions(screen.getByLabelText("Typ"), "typ:Process");
+    expect(screen.getByText("release.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+  });
+
+  // Die Repo-Wurzel hat die leere Ebenen-Id — sie darf nicht mit „alle
+  // Ebenen" zusammenfallen, in keiner Richtung.
+  it("tells the repo root apart from all levels", async () => {
+    drei();
+    const ebene = screen.getByLabelText("Ebene");
+    await userEvent.selectOptions(ebene, "lvl:");
+    expect(screen.getByText("release.md")).toBeTruthy();
+    expect(screen.queryByText("adr.md")).toBeNull();
+    await userEvent.selectOptions(ebene, "alle");
+    expect(screen.getByText("release.md")).toBeTruthy();
+    expect(screen.getByText("adr.md")).toBeTruthy();
+    expect(screen.getByText("tokenizer.md")).toBeTruthy();
+  });
+
+  // Der Filter räumt die Liste auf, nicht die Anzeige — sonst verschwindet die
+  // Änderung, an der man gerade arbeitet.
+  it("keeps the open change visible even when it does not match", async () => {
+    drei("c1");
+    await userEvent.type(screen.getByLabelText("Suchen"), "tokenizer");
+    expect(screen.getByText("apps/web/docs/decisions/adr.md")).toBeTruthy();
+  });
+
+  it("stays operable when nothing matches", async () => {
+    drei(null);
+    await userEvent.type(screen.getByLabelText("Suchen"), "zzz");
+    expect(screen.getAllByText("Keine Änderung passt zur Suche.").length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: "Filter zurücksetzen" }));
+    expect(screen.getByText("adr.md")).toBeTruthy();
+    expect(screen.queryByText("Keine Änderung passt zur Suche.")).toBeNull();
+  });
+
+  it("hides a dropdown that has only one choice", () => {
+    render(<ChangesTab toRate={[root]} acceptedByMe={[]} selectedId="c3"
+      guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.queryByLabelText("Ebene")).toBeNull();
+    expect(screen.queryByLabelText("Typ")).toBeNull();
+    expect(screen.getByLabelText("Suchen")).toBeTruthy();
+  });
+
+  // Sie wurde gezielt geöffnet — ein Filter darf sie nicht verschlucken.
+  it("never filters away the change opened from the history", async () => {
+    render(<ChangesTab toRate={[web]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+      selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Suchen"), "zzz");
+    expect(screen.getByText("AUS DEM VERLAUF")).toBeTruthy();
+    expect(screen.getByText("alt.md")).toBeTruthy();
+  });
+
+  it("shows the empty state, not the filter, when there is nothing at all", () => {
+    render(<ChangesTab toRate={[]} acceptedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.getByText("Keine offenen Änderungen")).toBeTruthy();
+    expect(screen.queryByLabelText("Suchen")).toBeNull();
+  });
+});
