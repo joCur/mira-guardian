@@ -26,14 +26,14 @@ export function RenameNotice({ previousPath, filePath, changeKind }:
   return (
     <div className="bg-ctp-blue/10 border border-ctp-blue/35 rounded-lg px-4 py-3 mb-4">
       <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="text-[10px] tracking-[0.08em] font-semibold uppercase text-ctp-blue">
+        <span className="text-xs tracking-[0.08em] font-semibold uppercase text-ctp-blue">
           {moveLabel(previousPath, filePath)}
         </span>
-        <span className="text-[11.5px] text-ctp-subtext0">
+        <span className="text-xs text-ctp-subtext0">
           {nurVerschoben ? "Inhalt unverändert" : "Inhalt zusätzlich geändert"}
         </span>
       </div>
-      <div className="mt-2 font-mono text-[12px] leading-relaxed">
+      <div className="mt-2 font-mono text-xs leading-relaxed">
         <div className="flex gap-1.5 min-w-0">
           <span className="text-ctp-overlay0 shrink-0 select-none" aria-hidden>·</span>
           <span className="text-ctp-red/90 line-through break-all">{previousPath}</span>
