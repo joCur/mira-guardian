@@ -16,22 +16,39 @@ files:
   - out/**
   - package.json
 
+# Woher der Updater seine Metadaten liest. Der Block ist auch bei
+# `--publish never` nötig: ohne ihn erzeugt electron-builder weder die
+# latest*.yml neben den Artefakten noch die app-update.yml in der App selbst,
+# und der Updater wüsste zur Laufzeit nicht, wo er nachfragen soll.
+# Das Repository ist öffentlich, die Suche braucht deshalb kein Token.
+publish:
+  provider: github
+  owner: joCur
+  repo: mira-guardian
+
 mac:
   target:
     - dmg
     - zip
   category: public.app-category.developer-tools
   artifactName: mira-guardian-${version}-mac-${arch}.${ext}
-  # Ad-hoc signieren ("-") statt gar nicht (null): Ohne Signierschritt bleibt
-  # die Linker-Signatur auf einem Bundle zurück, das electron-builder danach
-  # noch umbaut — macOS hält das für beschädigt ("ist beschädigt und kann
-  # nicht geöffnet werden") statt nur für unsigniert. Mit Developer-ID-Secrets
-  # überschreibt CSC_LINK diese Einstellung.
-  identity: "-"
+  # Mit dem selbstsignierten Zertifikat "Guardian Code Signing" signieren, nicht
+  # ad-hoc ("-"): Squirrel.Mac prüft ein Update gegen die Designated Requirement
+  # der laufenden App. Bei einer Ad-hoc-Signatur ist die an den cdhash genau
+  # dieses Builds gebunden, weshalb jede neue Version durchfallen würde. Ein
+  # festes Zertifikat ergibt "certificate leaf = H\"…\"" — das erfüllt jeder
+  # Build, der damit signiert ist. Gar nicht zu signieren ist keine Alternative:
+  # dann bliebe die Linker-Signatur auf einem Bundle zurück, das electron-builder
+  # danach noch umbaut, und macOS hielte die App für beschädigt.
+  # Die Pipeline bekommt dasselbe Zertifikat über CSC_LINK aus den Secrets;
+  # lokal muss es in der Schlüsselbundverwaltung liegen (siehe README).
+  identity: Guardian Code Signing
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
 
 win:
+  # Nur der NSIS-Installer kann sich selbst aktualisieren. Das portable EXE
+  # bleibt als Variante ohne Installation — es holt sich keine Updates.
   target:
     - nsis
     - portable
@@ -42,6 +59,9 @@ nsis:
   allowToChangeInstallationDirectory: true
 
 linux:
+  # Das AppImage ersetzt sich selbst (der Updater schreibt die Datei an ihrem
+  # Ort neu). Das DEB gehört dem Paketmanager: dort kommt ein Update nur mit
+  # Rechteabfrage durch, weshalb es als reines Download-Paket gedacht ist.
   target:
     - AppImage
     - deb

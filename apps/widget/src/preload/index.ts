@@ -9,6 +9,7 @@ function on<T>(channel: string, cb: (data: T) => void): () => void {
 contextBridge.exposeInMainWorld("guardian", {
   getConfig: () => ipcRenderer.invoke("guardian:getConfig"),
   getAppVersion: () => ipcRenderer.invoke("guardian:getAppVersion"),
+  getDeviceLabel: () => ipcRenderer.invoke("guardian:getDeviceLabel"),
   setToken: (token: string) => ipcRenderer.invoke("guardian:setToken", token),
   clearToken: () => ipcRenderer.invoke("guardian:clearToken"),
   setServerUrl: (url: string) => ipcRenderer.invoke("guardian:setServerUrl", url),
@@ -21,4 +22,8 @@ contextBridge.exposeInMainWorld("guardian", {
   onOpenChange: (cb: (changeId: string) => void) => on("guardian:openChange", cb),
   hideWindow: () => ipcRenderer.invoke("guardian:hideWindow"),
   openExternal: (url: string) => ipcRenderer.invoke("guardian:openExternal", url),
+  getUpdateStatus: () => ipcRenderer.invoke("guardian:getUpdateStatus"),
+  checkForUpdate: () => ipcRenderer.invoke("guardian:checkForUpdate"),
+  installUpdate: () => ipcRenderer.invoke("guardian:installUpdate"),
+  onUpdateStatus: (cb: (s: unknown) => void) => on("guardian:updateStatus", cb),
 });

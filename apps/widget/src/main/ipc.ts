@@ -1,8 +1,12 @@
 import { ipcMain, shell } from "electron";
 import { tokenStore } from "./tokenStore.js";
+import { deviceLabel } from "./deviceLabel.js";
 
 export function registerIpc() {
   ipcMain.handle("guardian:getConfig", () => tokenStore.get());
+  // Der Gerätename wird beim Verknüpfen mitgeschickt und steht danach in der
+  // Geräteliste des Hüters. Nur der Main-Prozess kennt den Hostnamen.
+  ipcMain.handle("guardian:getDeviceLabel", () => deviceLabel());
   // Beim Bauen eingebacken (siehe electron.vite.config.ts) — nicht
   // app.getVersion(), das ohne gefundene package.json die Electron-Version
   // zurückgibt und damit je nach Startart etwas anderes bedeutet.

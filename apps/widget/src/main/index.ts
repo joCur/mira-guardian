@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, shell } from "electron";
 import { join } from "node:path";
 import { registerIpc } from "./ipc.js";
+import { initUpdater, registerUpdaterIpc } from "./updater.js";
 import { tokenStore } from "./tokenStore.js";
 import { TRAY_ICON_16_TEMPLATE, TRAY_ICON_32_TEMPLATE, TRAY_ICON_32_LIGHT } from "./trayIcon.js";
 
@@ -153,8 +154,12 @@ else {
   app.whenReady().then(() => {
     if (process.platform === "darwin") app.dock?.hide();
     registerIpc();
+    registerUpdaterIpc(() => { quitting = true; });
     createWindow();
     registerWindowIpc();
+    // Nach dem Fenster: der Status wird an alle offenen Fenster gesendet, und
+    // der Renderer holt sich den Stand beim Aufbauen zusätzlich selbst ab.
+    initUpdater();
     let icon;
     if (process.platform === "darwin") {
       // 16pt-Basis + 2x-Retina-Repräsentation; als Template-Image färbt macOS

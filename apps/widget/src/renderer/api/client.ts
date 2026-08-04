@@ -1,4 +1,4 @@
-import type { ChangeWithVotes, Guardian, VoteStatus } from "@guardian/shared";
+import type { ChangeWithVotes, Device, Guardian, RelinkCode, VoteStatus } from "@guardian/shared";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -12,6 +12,8 @@ export interface HistoryEntry {
   filePath: string; commitShort: string; summary: string;
 }
 export interface AuthResponse { deviceToken: string; guardian: Guardian }
+/** Antwort eines Servers, der Codes für bestehende Profile noch nicht kennt, hat kein expiresAt. */
+export interface InviteResponse { code: string; expiresAt?: string }
 
 export class ApiClient {
   // Default wraps the global fetch in an arrow so it is always invoked with the
@@ -25,7 +27,9 @@ export class ApiClient {
   ) {}
 
   private async req<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // Content-Type nur mit Nutzlast: ein leerer Body mit JSON-Header ist für
+    // Fastify ein Fehler (400), und ohne Body ist der Header ohnehin falsch.
+    const headers: Record<string, string> = body === undefined ? {} : { "Content-Type": "application/json" };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
       method, headers, body: body === undefined ? undefined : JSON.stringify(body),
@@ -56,13 +60,27 @@ export class ApiClient {
     return res.blob();
   }
 
-  init(setupCode: string, name: string, email: string) { return this.req<AuthResponse>("POST", "/auth/init", { setupCode, name, email }); }
-  redeem(code: string) { return this.req<AuthResponse>("POST", "/auth/redeem", { code }); }
+  // deviceLabel benennt das Gerät in der Geräteliste des Hüters. Ein Server ohne
+  // Geräteverwaltung ignoriert das Feld; ist der Name unbekannt, bleibt es weg
+  // und der Server setzt selbst einen Platzhalter.
+  private withLabel(body: Record<string, unknown>, deviceLabel?: string) {
+    return deviceLabel ? { ...body, deviceLabel } : body;
+  }
+  init(setupCode: string, name: string, email: string, deviceLabel?: string) {
+    return this.req<AuthResponse>("POST", "/auth/init", this.withLabel({ setupCode, name, email }, deviceLabel));
+  }
+  redeem(code: string, deviceLabel?: string) {
+    return this.req<AuthResponse>("POST", "/auth/redeem", this.withLabel({ code }, deviceLabel));
+  }
   getChanges() { return this.req<ChangesResponse>("GET", "/changes"); }
   getChange(id: string) { return this.req<ChangeWithVotes>("GET", `/changes/${id}`); }
   vote(id: string, status: VoteStatus, comment: string) { return this.req<ChangeWithVotes>("POST", `/changes/${id}/vote`, { status, comment }); }
   getGuardians() { return this.req<{ guardians: Guardian[]; pending: { code: string; name: string; email: string }[] }>("GET", "/guardians"); }
-  invite(name: string, email: string) { return this.req<{ code: string }>("POST", "/guardians/invite", { name, email }); }
+  invite(name: string, email: string) { return this.req<InviteResponse>("POST", "/guardians/invite", { name, email }); }
+  /** Zugangscode für ein weiteres Gerät eines bestehenden Hüters. */
+  relink(guardianId: string) { return this.req<RelinkCode>("POST", `/guardians/${guardianId}/relink`); }
+  getMyDevices() { return this.req<{ devices: Device[] }>("GET", "/me/devices"); }
+  revokeDevice(deviceId: string) { return this.req<{ ok: true }>("POST", `/me/devices/${deviceId}/revoke`); }
   getMeeting() { return this.req<MeetingResponse>("GET", "/meeting"); }
   getMyHistory() { return this.req<{ entries: HistoryEntry[] }>("GET", "/me/history"); }
   getMe() { return this.req<{ guardian: Guardian }>("GET", "/me"); }

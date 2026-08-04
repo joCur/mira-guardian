@@ -77,6 +77,34 @@ curl -s localhost:4000/health             # {"ok":true,"version":"0.1.11"}
 Dieselbe Angabe steht im Widget im Hüter-Tab unter „Verbindung", neben der
 Version der App. Weichen beide voneinander ab, weist die App darauf hin.
 
+## Anmeldung eines Hüters wiederherstellen
+
+Der Weg auf einen neuen Rechner läuft ohne den Server: Im Hüter-Tab stellt jeder
+Hüter über **Gerät verknüpfen** einen Zugangscode für ein bestehendes Profil aus
+— auch für sich selbst, solange noch ein Gerät angemeldet ist. Der Code ist 24
+Stunden gültig, gilt einmalig, und das Profil bleibt dasselbe: Bewertungen und
+Gründungsrolle kommen mit.
+
+Der Betreiber wird nur gebraucht, wenn **kein** Gerät mehr angemeldet ist, das
+einen Code ausstellen könnte — beim Gründungs-Hüter zusätzlich deshalb, weil
+sein Setup-Code verbraucht ist und `/auth/init` eine initialisierte Instanz
+ablehnt:
+
+```bash
+cd ~/mira-guardian
+docker compose exec server node dist/cli.js guardians          # E-Mail und Geräte nachsehen
+docker compose exec server node dist/cli.js relink <mail@example.com>
+```
+
+Der ausgegebene Code wird im Widget unter „Gerät verknüpfen" eingegeben. Er ist
+kurzlebig und einmalig — aber solange er gültig ist, öffnet er den Zugang zu
+diesem Profil: nicht in einem Ticket ablegen, und ein nicht genutzter Code wird
+am besten durch einen neuen entwertet.
+
+Verlorene und ausgetauschte Rechner gehören danach aus der Liste: Im Hüter-Tab
+zeigt **Meine Geräte** jedes verknüpfte Gerät mit letztem Kontakt, und *Zugang
+entziehen* sperrt es sofort aus.
+
 ## Backup und Umzug auf einen anderen Server
 
 Der Container **muss dafür gestoppt sein**: SQLite läuft im WAL-Modus, ein
