@@ -32,8 +32,8 @@ export function HistoryTab({ entries, onOpen }:
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[820px] mx-auto">
         <div className="flex items-baseline gap-3.5 mb-3">
-          <span className="text-[20px] font-bold text-ctp-text">Meine Bewertungen</span>
-          <span className="text-[14px] text-ctp-subtext0">
+          <span className="text-2xl font-bold text-ctp-text">Meine Bewertungen</span>
+          <span className="text-base text-ctp-subtext0">
             {gefiltert ? `${gezeigt.length} von ${entries.length}` : `${entries.length} insgesamt`}
           </span>
         </div>
@@ -41,22 +41,22 @@ export function HistoryTab({ entries, onOpen }:
           <FilterBar value={filter} onChange={setFilter} levels={optionen.levels} types={optionen.types} />
         </div>
         {gezeigt.length === 0 && (
-          <div className="text-[14px] text-ctp-subtext0 py-6 text-center">Keine Bewertung passt zur Suche.</div>
+          <div className="text-base text-ctp-subtext0 py-6 text-center">Keine Bewertung passt zur Suche.</div>
         )}
         {gezeigt.map(e => (
           <div key={`${e.changeId}-${e.updatedAt}`}
             className={`bg-ctp-mantle border border-ctp-surface0 border-l-[3px] ${statusBorder(e.status)} rounded-[10px] px-[18px] py-3.5 mb-2.5`}>
             <div className="flex items-baseline gap-2.5 flex-wrap">
-              <span className={`text-[12px] font-semibold ${statusText(e.status)}`}>{STATUS_LABELS[e.status]}</span>
+              <span className={`text-xs font-semibold ${statusText(e.status)}`}>{STATUS_LABELS[e.status]}</span>
               <LevelPill filePath={e.filePath} />
-              <span className="font-mono text-[14px] text-ctp-subtext1 break-all">{e.filePath}</span>
+              <span className="font-mono text-base text-ctp-subtext1 break-all">{e.filePath}</span>
               <span className="flex-1" />
-              <span className="text-[12px] text-ctp-subtext0 whitespace-nowrap">{when(e.updatedAt)}</span>
+              <span className="text-xs text-ctp-subtext0 whitespace-nowrap">{when(e.updatedAt)}</span>
               <span onClick={() => onOpen(e.changeId)}
-                className="text-[13px] text-ctp-blue cursor-pointer hover:underline whitespace-nowrap">Ansehen →</span>
+                className="text-sm text-ctp-blue cursor-pointer hover:underline whitespace-nowrap">Ansehen →</span>
             </div>
-            <div className="text-[13px] text-ctp-subtext0 mt-1">{e.commitShort} · {e.summary}</div>
-            {e.comment && <div className="text-[14px] text-ctp-subtext1 italic mt-1.5">„{e.comment}"</div>}
+            <div className="text-sm text-ctp-subtext0 mt-1">{e.commitShort} · {e.summary}</div>
+            {e.comment && <div className="text-base text-ctp-subtext1 italic mt-1.5">„{e.comment}"</div>}
           </div>
         ))}
       </div>

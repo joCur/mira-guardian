@@ -71,22 +71,22 @@ export function FrontmatterCard({ fields }: { fields: FmField[] }) {
       {badges.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {badges.map(b => (
-            <span key={b.key} className={`text-[12px] font-semibold tracking-wide border rounded-full px-2 py-[2px] ${badgeColor(b.key, b.newValues![0])}`}>
+            <span key={b.key} className={`text-xs font-semibold tracking-wide border rounded-full px-2 py-[2px] ${badgeColor(b.key, b.newValues![0])}`}>
               {b.newValues![0]}
             </span>
           ))}
         </div>
       )}
-      {description?.newValues && <div className="text-[14px] text-ctp-text leading-snug mt-2">{description.newValues.join(", ")}</div>}
+      {description?.newValues && <div className="text-base text-ctp-text leading-snug mt-2">{description.newValues.join(", ")}</div>}
       {rest.length > 0 && (
         <div className={`grid grid-cols-[minmax(110px,auto)_1fr] gap-x-4 gap-y-1.5 ${hasHeader ? "mt-2.5 pt-2.5 border-t border-ctp-surface0" : ""}`}>
           {rest.map(field => (
             <React.Fragment key={field.key}>
               {/* Feld-Namen im Label-Duktus der App (vgl. DIESE WOCHE / KOMMENTARE) */}
-              <span className="text-[12px] tracking-[0.08em] font-semibold uppercase text-ctp-subtext0 leading-[1.9] truncate">{field.key}</span>
+              <span className="text-xs tracking-[0.08em] font-semibold uppercase text-ctp-subtext0 leading-[1.9] truncate">{field.key}</span>
               {field.newValues && field.newValues.length > 1 && !field.changed
-                ? <span className="min-w-0 text-[13px] leading-relaxed">{field.newValues.map((v, i) => <span key={i} className="font-mono text-ctp-subtext1 block truncate">{v}</span>)}</span>
-                : <span className="text-[13px] text-ctp-subtext1 leading-relaxed min-w-0"><Value field={field} /></span>}
+                ? <span className="min-w-0 text-sm leading-relaxed">{field.newValues.map((v, i) => <span key={i} className="font-mono text-ctp-subtext1 block truncate">{v}</span>)}</span>
+                : <span className="text-sm text-ctp-subtext1 leading-relaxed min-w-0"><Value field={field} /></span>}
             </React.Fragment>
           ))}
         </div>

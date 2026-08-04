@@ -21,6 +21,27 @@ export default {
         sans: FONT_STACK,
         mono: FONT_STACK,
       },
+      // Die Typo-Skala des Widgets — der eine Ort, an dem Schriftgrößen gedreht
+      // werden. Vorher standen die Werte als `text-[12.5px]` an 169 Einzelstellen;
+      // so sind unbemerkt 13 Stufen entstanden, fünf davon auf halben Pixeln.
+      //
+      // Ganzzahlig ist Pflicht: bei halben Pixeln landen die Glyphen-Konturen auf
+      // 1x-Displays zwischen dem Raster und wirken unscharf.
+      //
+      // Bewusst enger als der Tailwind-Standard (12/14/16/18/20/24) — der ist auf
+      // Fließtext ausgelegt, unser Fenster ist dicht und braucht zusätzlich
+      // Stufen unter 12 px. Nur die Größe, keine Zeilenhöhe: die erben die
+      // Elemente wie bisher von ihrem Umfeld.
+      fontSize: {
+        "2xs": "10px", // Mini-Badges
+        xs: "11px", // Labels, Sektionsköpfe, Meta-Zeilen
+        sm: "12px", // Sekundärtext, Dateinamen in Listen
+        base: "13px", // Grundtext
+        md: "14px", // Zwischenüberschrift
+        lg: "15px", // Titel, Detail-Überschrift
+        xl: "17px", // Dialog-Überschrift
+        "2xl": "19px", // Tab-Überschrift
+      },
     },
   },
   // prefix: "ctp" is REQUIRED — without it the plugin registers colours as
