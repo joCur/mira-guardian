@@ -32,8 +32,8 @@ export function HistoryTab({ entries, onOpen }:
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[820px] mx-auto">
         <div className="flex items-baseline gap-3.5 mb-3">
-          <span className="text-xl font-bold text-ctp-text">Meine Bewertungen</span>
-          <span className="text-sm text-ctp-subtext0">
+          <span className="text-lg font-bold text-ctp-text">Meine Bewertungen</span>
+          <span className="text-xs text-ctp-subtext0">
             {gefiltert ? `${gezeigt.length} von ${entries.length}` : `${entries.length} insgesamt`}
           </span>
         </div>
@@ -41,7 +41,7 @@ export function HistoryTab({ entries, onOpen }:
           <FilterBar value={filter} onChange={setFilter} levels={optionen.levels} types={optionen.types} />
         </div>
         {gezeigt.length === 0 && (
-          <div className="text-sm text-ctp-subtext0 py-6 text-center">Keine Bewertung passt zur Suche.</div>
+          <div className="text-xs text-ctp-subtext0 py-6 text-center">Keine Bewertung passt zur Suche.</div>
         )}
         {gezeigt.map(e => (
           <div key={`${e.changeId}-${e.updatedAt}`}
@@ -49,14 +49,14 @@ export function HistoryTab({ entries, onOpen }:
             <div className="flex items-baseline gap-2.5 flex-wrap">
               <span className={`text-xs font-semibold ${statusText(e.status)}`}>{STATUS_LABELS[e.status]}</span>
               <LevelPill filePath={e.filePath} />
-              <span className="font-mono text-sm text-ctp-subtext1 break-all">{e.filePath}</span>
+              <span className="font-mono text-xs text-ctp-subtext1 break-all">{e.filePath}</span>
               <span className="flex-1" />
               <span className="text-xs text-ctp-subtext0 whitespace-nowrap">{when(e.updatedAt)}</span>
               <span onClick={() => onOpen(e.changeId)}
                 className="text-xs text-ctp-blue cursor-pointer hover:underline whitespace-nowrap">Ansehen →</span>
             </div>
             <div className="text-xs text-ctp-subtext0 mt-1">{e.commitShort} · {e.summary}</div>
-            {e.comment && <div className="text-sm text-ctp-subtext1 italic mt-1.5">„{e.comment}"</div>}
+            {e.comment && <div className="text-xs text-ctp-subtext1 italic mt-1.5">„{e.comment}"</div>}
           </div>
         ))}
       </div>

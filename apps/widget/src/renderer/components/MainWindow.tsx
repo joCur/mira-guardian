@@ -20,11 +20,11 @@ export function MainWindow({ tab, onTab, onClose, titleBarExtra, children }:
           Titelleiste heraus und muss über dem Tab-Inhalt liegen. */}
       <div style={{ WebkitAppRegion: "drag" } as any}
         className={`relative z-20 flex items-center gap-3.5 ${isMac ? "pl-[80px]" : "pl-[18px]"} pr-[18px] py-2 border-b border-ctp-surface0 bg-ctp-mantle`}>
-        <span className="text-sm font-semibold text-ctp-text">Memory-Bank Hüter</span>
+        <span className="text-xs font-semibold text-ctp-text">Memory-Bank Hüter</span>
         <div className="flex gap-0.5 ml-3">
           {TABS.map(t => (
             <div key={t.id} onClick={() => onTab(t.id)} style={{ WebkitAppRegion: "no-drag" } as any}
-              className={`px-3.5 py-1 rounded-[7px] text-sm cursor-pointer transition-colors ${
+              className={`px-3.5 py-1 rounded-[7px] text-xs cursor-pointer transition-colors ${
                 tab === t.id ? "text-ctp-text bg-ctp-surface0" : "text-ctp-subtext0 hover:text-ctp-subtext1 hover:bg-ctp-surface0/50"
               }`}>{t.label}</div>
           ))}
@@ -33,7 +33,7 @@ export function MainWindow({ tab, onTab, onClose, titleBarExtra, children }:
         {titleBarExtra}
         {!isMac && (
           <div onClick={onClose} style={{ WebkitAppRegion: "no-drag" } as any}
-            className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center text-base text-ctp-subtext0 cursor-pointer hover:bg-ctp-surface0 hover:text-ctp-text transition-colors">✕</div>
+            className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center text-sm text-ctp-subtext0 cursor-pointer hover:bg-ctp-surface0 hover:text-ctp-text transition-colors">✕</div>
         )}
       </div>
       {children}

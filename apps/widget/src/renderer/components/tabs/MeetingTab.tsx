@@ -16,12 +16,12 @@ function Card({ c, onOpen, byId }:
   return (
     <div className={`bg-ctp-mantle border border-ctp-surface0 rounded-[10px] px-[18px] py-4 mb-3 border-l-[3px] ${statusBorder(worstStatus(c))}`}>
       <div className="flex items-baseline gap-2.5 flex-wrap">
-        <span className="font-mono text-base font-semibold text-ctp-text break-all">{c.filePath}</span>
+        <span className="font-mono text-sm font-semibold text-ctp-text break-all">{c.filePath}</span>
         <span className="text-xs text-ctp-subtext0">{c.commitShort} · {c.authorName}</span>
         <span className="flex-1" />
         <span onClick={() => onOpen(c.id)} className="text-xs text-ctp-blue cursor-pointer hover:underline whitespace-nowrap">Änderung ansehen →</span>
       </div>
-      <div className="text-sm text-ctp-subtext1 mt-1">{c.summary}</div>
+      <div className="text-xs text-ctp-subtext1 mt-1">{c.summary}</div>
 
       {/* Stand aller Hüter — im Meeting ist so sichtbar, auf wen gewartet wird. */}
       <div className="flex gap-1.5 flex-wrap mt-2.5">
@@ -40,7 +40,7 @@ function Card({ c, onOpen, byId }:
           <div className={`text-xs font-semibold ${statusText(v.status)}`}>
             {byId.get(v.guardianId) ? `${byId.get(v.guardianId)!.name} · ` : ""}{STATUS_LABELS[v.status]}
           </div>
-          <div className="text-sm text-ctp-subtext1 mt-0.5 leading-normal">{v.comment}</div>
+          <div className="text-xs text-ctp-subtext1 mt-0.5 leading-normal">{v.comment}</div>
         </div>
       ))}
     </div>
@@ -81,8 +81,8 @@ export function MeetingTab({ meeting, guardians, onOpen }:
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[820px] mx-auto">
         <div className="flex items-baseline gap-3.5 flex-wrap">
-          <span className="text-xl font-bold text-ctp-text">Offene Punkte</span>
-          <span className="text-sm text-ctp-subtext0">{parts.join(" · ")}</span>
+          <span className="text-lg font-bold text-ctp-text">Offene Punkte</span>
+          <span className="text-xs text-ctp-subtext0">{parts.join(" · ")}</span>
         </div>
         {pendingHint && <div className="mt-2.5 mb-4">{pendingHint}</div>}
         {!pendingHint && <div className="mb-4" />}

@@ -77,7 +77,7 @@ export function FrontmatterCard({ fields }: { fields: FmField[] }) {
           ))}
         </div>
       )}
-      {description?.newValues && <div className="text-sm text-ctp-text leading-snug mt-2">{description.newValues.join(", ")}</div>}
+      {description?.newValues && <div className="text-xs text-ctp-text leading-snug mt-2">{description.newValues.join(", ")}</div>}
       {rest.length > 0 && (
         <div className={`grid grid-cols-[minmax(110px,auto)_1fr] gap-x-4 gap-y-1.5 ${hasHeader ? "mt-2.5 pt-2.5 border-t border-ctp-surface0" : ""}`}>
           {rest.map(field => (

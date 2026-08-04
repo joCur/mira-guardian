@@ -68,7 +68,7 @@ export function UpdateBadge({ status, currentVersion, onInstall, onOpenNotes }: 
 
       {open && (
         <div className="absolute right-0 top-[32px] z-30 w-[296px] bg-ctp-mantle border border-ctp-surface1 rounded-[10px] shadow-lg shadow-ctp-crust/50 px-4 py-3.5">
-          <div className="text-sm font-semibold text-ctp-text">
+          <div className="text-xs font-semibold text-ctp-text">
             {ready ? `Version ${status.version} ist bereit` : failed ? "Update nicht eingespielt" : `Version ${status.version} wird geladen`}
           </div>
           <div className="font-mono text-xs text-ctp-subtext0 mt-1">

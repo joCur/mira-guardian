@@ -64,8 +64,8 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[640px] mx-auto">
-        <div className="text-xl font-bold text-ctp-text">Hüter</div>
-        <div className="text-sm text-ctp-subtext0 mt-1">Jede Änderung an der Memory-Bank braucht die Bestätigung aller verknüpften Hüter.</div>
+        <div className="text-lg font-bold text-ctp-text">Hüter</div>
+        <div className="text-xs text-ctp-subtext0 mt-1">Jede Änderung an der Memory-Bank braucht die Bestätigung aller verknüpften Hüter.</div>
         <div className="mt-[18px] flex flex-col gap-2">
           {guardians.map(g => (
             <div key={g.id} className="bg-ctp-mantle border border-ctp-surface0 rounded-[10px] px-4 py-3">
@@ -73,7 +73,7 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
                 <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-ctp-crust shrink-0"
                   style={{ backgroundColor: g.avatarColor }}>{g.initials}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-ctp-text truncate">{g.name}</div>
+                  <div className="text-xs font-semibold text-ctp-text truncate">{g.name}</div>
                   <div className="font-mono text-xs text-ctp-subtext0 truncate">{g.email}</div>
                 </div>
                 <span className="text-xs font-semibold text-ctp-green bg-ctp-green/15 rounded-full px-2.5 py-[3px] shrink-0">✓ Verknüpft</span>
@@ -90,7 +90,7 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
               {relinkCodes[g.id] && (
                 <div className="mt-2.5 rounded-lg border border-ctp-blue/30 bg-ctp-blue/10 px-3.5 py-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-mono text-base tracking-[0.15em] text-ctp-text bg-ctp-surface0 border border-ctp-surface1 rounded-md px-2.5 py-1">
+                    <span className="font-mono text-sm tracking-[0.15em] text-ctp-text bg-ctp-surface0 border border-ctp-surface1 rounded-md px-2.5 py-1">
                       {relinkCodes[g.id].code}
                     </span>
                     <span className="text-xs text-ctp-subtext0">gültig bis {zeitpunkt(relinkCodes[g.id].expiresAt)}</span>
@@ -108,7 +108,7 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
             <div key={p.code} className="flex items-center gap-3 bg-ctp-base border border-dashed border-ctp-surface2 rounded-[10px] px-4 py-3">
               <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-ctp-subtext0 border border-dashed border-ctp-overlay0 shrink-0">{initialsOf(p.name)}</span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-ctp-subtext1 truncate">{p.name}</div>
+                <div className="text-xs font-semibold text-ctp-subtext1 truncate">{p.name}</div>
                 <div className="font-mono text-xs text-ctp-subtext0 truncate">{p.email}</div>
               </div>
               <span className="text-xs font-semibold text-ctp-yellow bg-ctp-yellow/15 rounded-full px-2.5 py-[3px] shrink-0">Code offen</span>
@@ -120,11 +120,11 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
           <div className="text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold mb-2.5">NEUEN HÜTER ANLEGEN</div>
           <div className="flex gap-2 flex-wrap">
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Name"
-              className="flex-1 min-w-[150px] bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-sm text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2 outline-none" />
+              className="flex-1 min-w-[150px] bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-xs text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2 outline-none" />
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-Mail"
-              className="flex-1 min-w-[170px] bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-sm text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2 outline-none" />
+              className="flex-1 min-w-[170px] bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-xs text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2 outline-none" />
             <button disabled={!valid} onClick={() => { onInvite(name.trim(), email.trim()); setName(""); setEmail(""); }}
-              className="rounded-lg px-[18px] py-2 text-sm font-semibold whitespace-nowrap transition-colors bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 disabled:bg-ctp-surface0/40 disabled:text-ctp-overlay0 disabled:border-ctp-surface0 disabled:cursor-not-allowed">Zugangscode erzeugen</button>
+              className="rounded-lg px-[18px] py-2 text-xs font-semibold whitespace-nowrap transition-colors bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 disabled:bg-ctp-surface0/40 disabled:text-ctp-overlay0 disabled:border-ctp-surface0 disabled:cursor-not-allowed">Zugangscode erzeugen</button>
           </div>
           <div className="text-xs text-ctp-overlay0 mt-2 leading-normal">Erzeugt einen einmaligen Zugangscode. Der neue Hüter gibt ihn beim ersten Start ein — erst danach zählt seine Bestätigung bei Änderungen.</div>
         </div>
@@ -135,7 +135,7 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
             {devices.map(d => (
               <div key={d.id} className="flex items-center gap-3 bg-ctp-base border border-ctp-surface0 rounded-lg px-3.5 py-2.5">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-ctp-text truncate">{d.label}</div>
+                  <div className="text-xs font-semibold text-ctp-text truncate">{d.label}</div>
                   <div className="text-xs text-ctp-subtext0">letzter Kontakt {zeitpunkt(d.lastSeenAt)}</div>
                 </div>
                 {d.current
@@ -160,9 +160,9 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
             {/* Die Adresse ist an den Zugang gebunden: Der Token gilt nur für
                 diesen Server. Ändern geht deshalb nur über Abmelden und neu
                 verknüpfen — sonst liefe die App in stumme 401er. */}
-            <span className="font-mono text-sm text-ctp-subtext1 break-all flex-1 min-w-[200px]">{serverUrl}</span>
+            <span className="font-mono text-xs text-ctp-subtext1 break-all flex-1 min-w-[200px]">{serverUrl}</span>
             <button onClick={() => setConfirmSignOut(true)}
-              className="rounded-lg px-[18px] py-2 text-sm font-semibold whitespace-nowrap transition-colors bg-ctp-red/15 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/25">Abmelden</button>
+              className="rounded-lg px-[18px] py-2 text-xs font-semibold whitespace-nowrap transition-colors bg-ctp-red/15 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/25">Abmelden</button>
           </div>
           <div className="text-xs text-ctp-overlay0 mt-2 leading-normal">
             Adresse des Guardian-Servers. Sie gehört zu deinem Zugang und lässt
@@ -171,7 +171,7 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
           </div>
           {confirmSignOut && (
             <div className="mt-3 rounded-lg border border-ctp-red/40 bg-ctp-red/10 px-3.5 py-3">
-              <div className="text-sm font-semibold text-ctp-red">Wirklich abmelden?</div>
+              <div className="text-xs font-semibold text-ctp-red">Wirklich abmelden?</div>
               <div className="text-xs text-ctp-subtext1 mt-1 leading-relaxed">
                 Der Zugang dieses Geräts wird gelöscht. Zum Wiederverbinden
                 brauchst du einen neuen Zugangscode — den stellt dir jeder Hüter
@@ -181,16 +181,16 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
               </div>
               <div className="flex gap-2.5 justify-end mt-2.5">
                 <button onClick={() => setConfirmSignOut(false)}
-                  className="rounded-lg px-3.5 py-[7px] text-sm text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors">Abbrechen</button>
+                  className="rounded-lg px-3.5 py-[7px] text-xs text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors">Abbrechen</button>
                 <button onClick={() => void onSignOut()}
-                  className="rounded-lg px-4 py-[7px] text-sm font-semibold bg-ctp-red/25 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/30 transition-colors">Abmelden</button>
+                  className="rounded-lg px-4 py-[7px] text-xs font-semibold bg-ctp-red/25 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/30 transition-colors">Abmelden</button>
               </div>
             </div>
           )}
 
           <div className="mt-4 pt-3.5 border-t border-ctp-surface0">
             <div className="text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold mb-1.5">VERSION</div>
-            <div className="font-mono text-sm text-ctp-subtext1">
+            <div className="font-mono text-xs text-ctp-subtext1">
               Widget {appVersion || "unbekannt"} · Server {serverVersion ?? "unbekannt"}
             </div>
             {laeuftAuseinander && (

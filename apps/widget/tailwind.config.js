@@ -21,13 +21,23 @@ export default {
         sans: FONT_STACK,
         mono: FONT_STACK,
       },
-      // Die Schriftgrößen sind ansonsten der unveränderte Tailwind-Standard
-      // (xs 12 / sm 14 / base 16 / lg 18 / xl 20 px, jeweils mit dessen
-      // Zeilenhöhe). Ergänzt ist nur diese eine Stufe *unterhalb* von `xs`:
-      // der Standard bietet unter 12 px nichts, und für die Mini-Badges wird
-      // 12 px zu groß — im 352 px breiten Toast verdrängen sie sonst den
-      // Dateinamen, und die Initialen sprengen den 18-px-Avatarkreis.
-      // Ohne Zeilenhöhe, damit die Badges kompakt bleiben.
+      // Die Schriftgrößen sind der unveränderte Tailwind-Standard (xs 12 /
+      // sm 14 / base 16 / lg 18 px, jeweils mit dessen Zeilenhöhe). Ergänzt
+      // ist nur eine Stufe *unterhalb* von `xs`, siehe unten.
+      //
+      // Wichtig für die Zuordnung: Der Grundtext sitzt auf `xs` (12 px), nicht
+      // auf `sm`. Die Tailwind-Skala ist für Proportionalschrift kalibriert,
+      // wir setzen sie aber auf eine Monospace. Gemessen im Fenster braucht
+      // derselbe Satz in JetBrains Mono 30 % mehr Breite als in der
+      // System-Schrift gleicher Punktgröße, und die x-Höhe liegt darüber —
+      // 14 px wirken deshalb wie 16–17 px Proportionalschrift. Jede Stufe
+      // fällt hier also optisch eine Stufe zu groß aus; die Zuordnung
+      // korrigiert das, statt an den Standardwerten zu drehen.
+      //
+      // Die 10-px-Stufe: Der Standard bietet unter 12 px nichts, und für die
+      // Mini-Badges wird 12 px zu groß — im 352 px breiten Toast verdrängen
+      // sie sonst den Dateinamen, und zwei Initialen füllen den 18-px-
+      // Avatarkreis randlos. Ohne Zeilenhöhe, damit Badges kompakt bleiben.
       fontSize: {
         "2xs": "10px",
       },

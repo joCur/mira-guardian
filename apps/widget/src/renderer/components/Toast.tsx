@@ -15,10 +15,10 @@ export function Toast({ data, onView, onDismiss }:
     <div className="w-[352px] bg-ctp-mantle border border-ctp-surface1 rounded-xl shadow-2xl overflow-hidden animate-toast-in">
       <div className="px-3.5 py-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-ctp-text">Memory-Bank geändert</span>
+          <span className="text-xs font-semibold text-ctp-text">Memory-Bank geändert</span>
           <span className="flex-1" />
           <span onClick={onDismiss} aria-label="Schließen"
-            className="text-sm leading-none text-ctp-overlay0 hover:text-ctp-text cursor-pointer p-0.5">✕</span>
+            className="text-xs leading-none text-ctp-overlay0 hover:text-ctp-text cursor-pointer p-0.5">✕</span>
         </div>
         <div className="flex items-center gap-1.5 mt-1 min-w-0">
           <span className="font-mono text-xs text-ctp-text truncate">{data.filePath.split("/").pop()}</span>
