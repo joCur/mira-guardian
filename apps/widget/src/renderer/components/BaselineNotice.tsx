@@ -13,7 +13,7 @@ export function BaselineNotice({ changeKind }: { changeKind: ChangeKind }) {
       <span className="text-xs tracking-[0.08em] font-semibold uppercase text-ctp-yellow">
         Vergleichsstand fehlt
       </span>
-      <div className="text-sm text-ctp-subtext0 leading-snug mt-1.5">
+      <div className="text-xs text-ctp-subtext0 leading-snug mt-1.5">
         {changeKind === "delete"
           ? "Der Inhalt vor dem Löschen ist nicht abrufbar."
           : "Unten steht das vollständige Dokument, nicht der Unterschied zum vorigen Stand."}

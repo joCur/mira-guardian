@@ -77,7 +77,7 @@ export function FrontmatterCard({ fields }: { fields: FmField[] }) {
           ))}
         </div>
       )}
-      {description?.newValues && <div className="text-base text-ctp-text leading-snug mt-2">{description.newValues.join(", ")}</div>}
+      {description?.newValues && <div className="text-sm text-ctp-text leading-snug mt-2">{description.newValues.join(", ")}</div>}
       {rest.length > 0 && (
         <div className={`grid grid-cols-[minmax(110px,auto)_1fr] gap-x-4 gap-y-1.5 ${hasHeader ? "mt-2.5 pt-2.5 border-t border-ctp-surface0" : ""}`}>
           {rest.map(field => (
@@ -85,8 +85,8 @@ export function FrontmatterCard({ fields }: { fields: FmField[] }) {
               {/* Feld-Namen im Label-Duktus der App (vgl. DIESE WOCHE / KOMMENTARE) */}
               <span className="text-xs tracking-[0.08em] font-semibold uppercase text-ctp-subtext0 leading-[1.9] truncate">{field.key}</span>
               {field.newValues && field.newValues.length > 1 && !field.changed
-                ? <span className="min-w-0 text-sm leading-relaxed">{field.newValues.map((v, i) => <span key={i} className="font-mono text-ctp-subtext1 block truncate">{v}</span>)}</span>
-                : <span className="text-sm text-ctp-subtext1 leading-relaxed min-w-0"><Value field={field} /></span>}
+                ? <span className="min-w-0 text-xs leading-relaxed">{field.newValues.map((v, i) => <span key={i} className="font-mono text-ctp-subtext1 block truncate">{v}</span>)}</span>
+                : <span className="text-xs text-ctp-subtext1 leading-relaxed min-w-0"><Value field={field} /></span>}
             </React.Fragment>
           ))}
         </div>

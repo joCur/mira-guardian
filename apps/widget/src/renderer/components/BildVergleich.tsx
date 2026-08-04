@@ -21,7 +21,7 @@ const BILDFLAECHE = `${FLAECHE} bg-white`;
 function Platzhalter({ text, ton }: { text: string; ton: "warten" | "leer" }) {
   return (
     <div className={`${FLAECHE} h-[140px] ${ton === "warten" ? "animate-pulse bg-ctp-surface0" : "bg-ctp-surface0/50 border border-ctp-surface0"}`}>
-      <span className="text-sm text-ctp-subtext0">{text}</span>
+      <span className="text-xs text-ctp-subtext0">{text}</span>
     </div>
   );
 }

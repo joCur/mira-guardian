@@ -29,11 +29,11 @@ export function RenameNotice({ previousPath, filePath, changeKind }:
         <span className="text-xs tracking-[0.08em] font-semibold uppercase text-ctp-blue">
           {moveLabel(previousPath, filePath)}
         </span>
-        <span className="text-sm text-ctp-subtext0">
+        <span className="text-xs text-ctp-subtext0">
           {nurVerschoben ? "Inhalt unverändert" : "Inhalt zusätzlich geändert"}
         </span>
       </div>
-      <div className="mt-2 font-mono text-sm leading-relaxed">
+      <div className="mt-2 font-mono text-xs leading-relaxed">
         <div className="flex gap-1.5 min-w-0">
           <span className="text-ctp-overlay0 shrink-0 select-none" aria-hidden>·</span>
           <span className="text-ctp-red/90 line-through break-all">{previousPath}</span>

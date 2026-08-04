@@ -23,7 +23,7 @@ export function EingebettetesBild({ src, alt }: { src?: string; alt?: string }) 
   if (!src) return null;
   if (istExtern(src)) {
     return (
-      <span className="inline-flex items-center gap-1.5 bg-ctp-surface0 border border-ctp-surface1 rounded px-2 py-1 my-1 text-sm text-ctp-subtext0">
+      <span className="inline-flex items-center gap-1.5 bg-ctp-surface0 border border-ctp-surface1 rounded px-2 py-1 my-1 text-xs text-ctp-subtext0">
         <span aria-hidden>🔗</span>
         <span>Bild von außerhalb: <span className="font-mono break-all">{src}</span></span>
       </span>
@@ -36,7 +36,7 @@ export function EingebettetesBild({ src, alt }: { src?: string; alt?: string }) 
     <span className="block my-2">
       {stand.status === "laedt" && <span className="block h-[120px] rounded-md bg-ctp-surface0 animate-pulse" />}
       {(stand.status === "fehlt" || stand.status === "fehler") && (
-        <span className="block bg-ctp-surface0/60 rounded-md px-3 py-2 text-sm text-ctp-subtext0">
+        <span className="block bg-ctp-surface0/60 rounded-md px-3 py-2 text-xs text-ctp-subtext0">
           {stand.status === "fehlt" ? "Bild in dieser Fassung nicht vorhanden" : "Bild nicht abrufbar"}
           {beschriftung ? `: ${beschriftung}` : ""}
         </span>

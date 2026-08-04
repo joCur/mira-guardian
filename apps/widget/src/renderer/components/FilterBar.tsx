@@ -67,7 +67,7 @@ export function FilterBar({ value, onChange, levels, types, stacked, placeholder
     <div className={stacked ? "flex flex-col gap-1.5" : "flex items-center gap-2"}>
       <input type="search" aria-label="Suchen" placeholder={placeholder} value={value.text}
         onChange={e => onChange({ ...value, text: e.target.value })}
-        className={`${FELD} text-sm placeholder:text-ctp-overlay0 px-2.5 py-1.5 ${stacked ? "w-full" : "flex-1"}`} />
+        className={`${FELD} text-xs placeholder:text-ctp-overlay0 px-2.5 py-1.5 ${stacked ? "w-full" : "flex-1"}`} />
       {/* In der schmalen Spalte bekommen die Auswahlfelder die volle Breite —
           das Zurücksetzen rutscht darunter, statt sie zusammenzuquetschen. */}
       <div className="flex gap-2 items-center">
