@@ -28,7 +28,8 @@ export class AuthService {
   private newGuardian(name: string, email: string, isFounder: boolean): Guardian {
     const idx = this.store.listGuardians().length;
     return { id: randomUUID(), name: name.trim(), email: email.trim(),
-      initials: initialsOf(name), avatarColor: avatarFor(idx), createdAt: this.now(), isFounder };
+      initials: initialsOf(name), avatarColor: avatarFor(idx), createdAt: this.now(), isFounder,
+      absentFrom: null, absentUntil: null };
   }
   private issueDevice(guardianId: string, label?: string): string {
     const token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");

@@ -5,7 +5,7 @@ import { GuardiansTab } from "../src/renderer/components/tabs/GuardiansTab.js";
 import type { UpdateStatus } from "../src/types/update.js";
 
 const guardians = [
-  { id: "g1", name: "Jonas Curth", email: "j@x.de", initials: "JC", avatarColor: "#89b4fa", createdAt: "t", isFounder: true },
+  { id: "g1", name: "Jonas Curth", email: "j@x.de", initials: "JC", avatarColor: "#89b4fa", createdAt: "t", isFounder: true, absentFrom: null, absentUntil: null },
 ];
 
 const CODE = { code: "MB-HWFT-NMR7", expiresAt: "2026-08-04T12:00:00.000Z", guardianName: "Jonas Curth" };

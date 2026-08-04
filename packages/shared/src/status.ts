@@ -1,10 +1,14 @@
 import type { VoteStatus, TypeRule } from "./types.js";
 
+// "Übersprungen (abwesend)" ist absichtlich neutral formuliert: dasselbe Label
+// steht im eigenen Verlauf und in der Hüter-Zeile fremder Änderungen. "Ohne
+// mich akzeptiert" würde dort in die falsche Person zeigen.
 export const STATUS_LABELS: Record<VoteStatus, string> = {
   offen: "ausstehend",
   akzeptiert: "Akzeptiert",
   klaerung: "Klärungsbedarf",
   abgelehnt: "Abgelehnt",
+  uebersprungen: "Übersprungen (abwesend)",
 };
 
 // Memory-Bank-Levels: Records liegen auf Repo-Root ODER App-Ebene

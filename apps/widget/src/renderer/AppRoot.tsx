@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import type { Device, Guardian } from "@guardian/shared";
+import { tagAus, wirksamAbwesende } from "@guardian/shared";
 import type { UpdateStatus } from "../types/update.js";
 import { ApiClient, type MeetingResponse, type HistoryEntry } from "./api/client.js";
 import { subscribe } from "./api/ws.js";
@@ -54,36 +55,64 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   // des Hüter-Tabs.
   const update = useUpdateStatus();
   const [appVersion, setAppVersion] = useState("");
+  // Der WS-Handler lebt länger als ein Render — eigene Id und Abwesenheit liegen
+  // deshalb in Refs und nicht im State, den der Handler nur veraltet sähe.
+  const meIdRef = useRef("");
+  const abwesendRef = useRef(false);
   useEffect(() => { void window.guardian.getAppVersion().then(setAppVersion).catch(() => {}); }, []);
 
   useEffect(() => {
     let alive = true;
-    api.getGuardians().then((r) => { if (alive) setGuardians(r.guardians); }).catch(() => {});
+    const ladeHueter = () => api.getGuardians()
+      .then((r) => {
+        if (!alive) return;
+        setGuardians(r.guardians);
+        if (meIdRef.current) {
+          abwesendRef.current = wirksamAbwesende(r.guardians, tagAus(new Date().toISOString()))
+            .some(g => g.id === meIdRef.current);
+        }
+      })
+      .catch(() => {});
+    void ladeHueter();
 
     // Beim Start und nach jedem Reconnect: Stand laden und verpasste Änderungen
     // nachträglich toasten. Die Wasserlinie (lastSeenChangeAt) lebt im
     // electron-store, damit sie App-Neustarts überlebt.
     const sync = async () => {
-      const [meR, lastSeen] = await Promise.all([api.getMe(), window.guardian.getLastSeenChange()]);
+      const [meR, lastSeen, gs] = await Promise.all([
+        api.getMe(), window.guardian.getLastSeenChange(), api.getGuardians().catch(() => null),
+      ]);
       if (!alive) return;
       setMe(meR.guardian);
+      meIdRef.current = meR.guardian.id;
+      if (gs) setGuardians(gs.guardians);
       await store.getState().refresh();
       if (!alive) return;
       const st = store.getState();
       const { toToast, watermark } = catchUpChanges(
         [...st.toRate, ...st.acceptedByMe], meR.guardian.id, lastSeen, new Date().toISOString());
-      for (const c of toToast) {
-        void window.guardian.showToast({
-          changeId: c.id, filePath: c.filePath, summary: c.summary,
-          authorName: c.authorName, changeKind: c.changeKind,
-        });
+      // Wer abwesend ist, wird nicht benachrichtigt: die Liste wartet nicht auf
+      // ihn. Nach der Rückkehr steht die Leseliste bereit.
+      const abwesend = wirksamAbwesende(gs?.guardians ?? [], tagAus(new Date().toISOString()))
+        .some(g => g.id === meR.guardian.id);
+      abwesendRef.current = abwesend;
+      if (!abwesend) {
+        for (const c of toToast) {
+          void window.guardian.showToast({
+            changeId: c.id, filePath: c.filePath, summary: c.summary,
+            authorName: c.authorName, changeKind: c.changeKind,
+          });
+        }
       }
       void window.guardian.bumpLastSeenChange(watermark);
     };
     sync().catch(() => { /* Server (noch) nicht erreichbar — Reconnect holt nach */ });
 
     const off = subscribe(serverUrl, token, (e) => {
-      if (e.type === "change:new" && e.changeId) {
+      // Eine geänderte Abwesenheit verschiebt Zuständigkeiten: die Hüterzeile
+      // im Meeting und die Chips im Hüter-Tab müssen den neuen Stand zeigen.
+      if (e.type === "guardian:added" || e.type === "guardian:updated") void ladeHueter();
+      if (e.type === "change:new" && e.changeId && !abwesendRef.current) {
         // Custom-Toast im eigenen Fenster: Details der frischen Änderung direkt
         // vom Server holen, nicht aus dem noch nicht aktualisierten Store.
         void api.getChange(e.changeId)
@@ -115,13 +144,19 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
         onInstall={() => void window.guardian.installUpdate()}
         onOpenNotes={(url) => void window.guardian.openExternal(url)} />}>
       {tab === "changes" && <ChangesTab toRate={state.toRate} acceptedByMe={state.acceptedByMe} selectedId={state.selectedId}
-        fromHistory={state.fromHistory}
+        fromHistory={state.fromHistory} decidedWithoutMe={state.decidedWithoutMe}
         guardianId={guardianId} guardians={guardians} onSelect={(id) => void store.getState().select(id)}
-        onVote={(id, s, c) => store.getState().castVote(id, s, c)} />}
+        onVote={(id, s, c) => store.getState().castVote(id, s, c)}
+        onSeen={(ids) => void store.getState().markSeen(ids)} />}
       {tab === "meeting" && <MeetingPanel api={api} guardians={guardians} onOpen={openChange} />}
       {tab === "history" && <HistoryPanel api={api} onOpen={openChange} />}
       {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onSignOut={onSignOut}
-        appVersion={appVersion} update={update} />}
+        appVersion={appVersion} update={update}
+        onAbsence={async (id, from, until) => {
+          await api.setAbsence(id, from, until);
+          // Die eigene Abwesenheit ändert Badge und Listen sofort mit.
+          await store.getState().refresh();
+        }} />}
     </MainWindow>
     </ApiProvider>
   );
@@ -138,9 +173,10 @@ function HistoryPanel({ api, onOpen }: { api: ApiClient; onOpen: (id: string) =>
   useEffect(() => { void api.getMyHistory().then(r => setEntries(r.entries)).catch(() => {}); }, [api]);
   return entries ? <HistoryTab entries={entries} onOpen={onOpen} /> : null;
 }
-function GuardiansPanel({ api, serverUrl, onSignOut, appVersion, update }:
+function GuardiansPanel({ api, serverUrl, onSignOut, appVersion, update, onAbsence }:
   { api: ApiClient; serverUrl: string; onSignOut: () => Promise<void>;
-    appVersion: string; update: UpdateStatus }) {
+    appVersion: string; update: UpdateStatus;
+    onAbsence: (guardianId: string, from: string | null, until: string | null) => Promise<void> }) {
   const [d, setD] = useState<any>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   // null heißt "nicht bekannt" — der Server ist nicht erreichbar oder älter als
@@ -159,6 +195,7 @@ function GuardiansPanel({ api, serverUrl, onSignOut, appVersion, update }:
     onSignOut={onSignOut} onInvite={(n, e) => api.invite(n, e).then(load)}
     devices={devices} onRelink={(id) => api.relink(id)}
     onRevoke={(id) => api.revokeDevice(id).then(() => { void loadDevices(); })}
+    onAbsence={(id, from, until) => onAbsence(id, from, until).then(load)}
     appVersion={appVersion} serverVersion={serverVersion}
     update={update} onCheckUpdate={() => void window.guardian.checkForUpdate()} /> : null;
 }

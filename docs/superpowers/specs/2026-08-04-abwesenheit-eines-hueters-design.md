@@ -1,8 +1,21 @@
 # Abwesenheit eines Hüters
 
 **Datum:** 2026-08-04
-**Status:** Entwurf zur Review
+**Status:** Umgesetzt
 **Bereich:** `packages/shared`, `apps/server`, `apps/widget`
+
+> **Nachtrag nach der Umsetzung (04.08.2026):** Drei Abweichungen vom Entwurf,
+> jeweils an Ort und Stelle eingearbeitet:
+> 1. **`POST` statt `PUT`** für die Abwesenheit — die CORS-Kopfzeilen des
+>    Servers erlauben nur `GET,POST,OPTIONS`, ein `PUT` aus dem Renderer wäre
+>    an der Preflight-Prüfung gescheitert.
+> 2. **Kein Sammel-Toast** beim Catch-up. Der Toast-Stapel deckelt sich mit
+>    `MAX_STACK` schon selbst auf fünf Karten; eine synthetische Karte „und 23
+>    weitere" hätte das `ToastData`-Format zweckentfremdet. Getoastet werden
+>    jetzt die **neuesten** fünf, damit sich am Sichtbaren nichts ändert.
+> 3. Die Kopfzeile des Hüter-Tabs („braucht die Bestätigung aller verknüpften
+>    Hüter") stimmte mit einer laufenden Abwesenheit nicht mehr und nennt nun
+>    den Zusatz.
 
 ## Problem
 
@@ -177,14 +190,16 @@ die falsche Person zeigen.
 |---|---|
 | `GET /changes` | zusätzlich `decidedWithoutMe`: meine `uebersprungen`-Votes ohne `seenAt` zu abgeschlossenen Änderungen, neueste zuerst — nie eine Änderung, die auch in `toRate` steht |
 | `GET /guardians` | Hüter tragen `absentFrom` und `absentUntil` |
-| `PUT /guardians/:id/absence` | **Neu.** Body `{ from, until }` oder `null` zum Löschen. Jeder Hüter darf für jeden setzen; `until ≥ from`, sonst 400. Löst `settle` über alle offenen Änderungen aus |
+| `POST /guardians/:id/absence` | **Neu.** Body `{ from, until }` im Format `JJJJ-MM-TT` oder leer zum Löschen. Jeder Hüter darf für jeden setzen; `until ≥ from`, sonst 400. Löst `settle` über alle offenen Änderungen aus und sendet `guardian:updated` über den Hub |
 | `POST /me/seen` | **Neu.** `{ changeIds: string[] }`, setzt `seenAt` nur auf eigenen Votes |
 | `POST /changes/:id/vote` | `uebersprungen` ist über die API **nicht** setzbar (400); setzt `seenAt` zurück; löst `settle` aus. Dazu die heute fehlende Laufzeitprüfung gegen `VOTE_STATUSES` nachziehen — bisher wird der Body nur gecastet (`httpApi.ts:113`), ein Tippfehler landete stumm in der DB |
 | `GET /me/history` | enthält `uebersprungen`-Einträge (Label „Übersprungen (abwesend)") |
 
 ## Widget-Änderungen
 
-- **Hüter-Tab:** die Hüter-Karte trägt neben „Neu verknüpfen" einen Chip
+- **Hüter-Tab:** die Kopfzeile nennt den Zusatz „während einer eingetragenen
+  Abwesenheit die der anwesenden" — ohne ihn behauptet sie etwas Falsches. Die
+  Hüter-Karte trägt neben „Gerät verknüpfen" einen Chip
   „abwesend bis 28.08." beziehungsweise den Knopf „Abwesenheit eintragen", der
   zwei Datumsfelder aufklappt („von" vorbelegt mit heute) — dasselbe Muster wie
   der Relink-Code, der dort schon aufklappt. Greift die Untergrenze, erscheint
@@ -196,7 +211,7 @@ die falsche Person zeigen.
   Meeting muss sichtbar sein, auf wen **nicht** gewartet wird. Die Zählzeile
   ergänzt „Anna ist bis 28.08. abwesend".
 - **Toasts:** unterdrückt, solange ich selbst abwesend bin. Zusätzlich ein
-  Deckel auf die Catch-up-Toasts (fünf plus Sammelzeile „und 23 weitere") —
+  Deckel auf die Catch-up-Toasts: nur die **neuesten fünf** werden gemeldet —
   wirkt auch bei jedem längeren Wochenende und ist unabhängig vom Rest nützlich.
 
 ## Randfälle
@@ -265,12 +280,15 @@ Nach dem Shared-Schritt ist jeder folgende Schritt für sich lauffähig.
   zeigt „abwesend" statt „ausstehend"; Toast-Deckel greift.
 - Verifikation abschließend in der echten Electron-App.
 
-## Entscheidungspunkte für die Review
+## Entscheidungspunkte — im Betrieb zu beurteilen
 
-1. **Verortung der Leseliste:** dritter Abschnitt im Änderungen-Tab (so
-   entworfen) oder ein eigener vierter Tab? Der Abschnitt hält die Tab-Leiste
-   schmal, ein eigener Tab wäre nach einem langen Urlaub übersichtlicher.
-2. **„Gesehen" freiwillig** (so entworfen) oder mit sanfter Erinnerung, solange
+Alle drei sind wie entworfen umgesetzt und lassen sich in der laufenden App
+beurteilen; jede Antwort ist eine kleine, örtlich begrenzte Änderung.
+
+1. **Verortung der Leseliste:** Abschnitt im Änderungen-Tab (so umgesetzt) oder
+   ein eigener fünfter Tab? Der Abschnitt hält die Tab-Leiste schmal, ein
+   eigener Tab wäre nach einem langen Urlaub übersichtlicher.
+2. **„Gesehen" freiwillig** (so umgesetzt) oder mit sanfter Erinnerung, solange
    die Liste nicht leer ist?
 3. **Untergrenze zwei Anwesende** — passt das für ein Trio, oder soll bei zwei
    gleichzeitig Abwesenden lieber der zuletzt eingetragene Urlaub verfallen

@@ -12,8 +12,11 @@ interface Props {
   toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; selectedId: string | null;
   /** Aus dem Verlauf geöffnet und in keiner der beiden Listen — siehe store.ts. */
   fromHistory?: ChangeWithVotes | null;
+  /** Während meiner Abwesenheit ohne mich entschieden — eine Leseliste. */
+  decidedWithoutMe?: ChangeWithVotes[];
   guardianId: string; guardians?: Guardian[]; onSelect: (id: string) => void;
   onVote: (id: string, status: VoteStatus, comment: string) => void;
+  onSeen?: (ids: string[]) => void;
 }
 
 function fmtDate(iso: string) {
@@ -51,14 +54,17 @@ function TypePill({ filePath, size }: { filePath: string; size: "sm" | "md" }) {
 
 export function ChangesTab(p: Props) {
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
+  const [nachlesenAufgeklappt, setNachlesenAufgeklappt] = useState(false);
 
   // Die aus dem Verlauf geöffnete Änderung gehört mit in die Auswahl, sonst
   // landet der Fallback auf der ersten offenen Änderung — also einer anderen
   // als der angeklickten.
-  const alle = [...p.toRate, ...p.acceptedByMe, ...(p.fromHistory ? [p.fromHistory] : [])];
+  const nachzulesen = p.decidedWithoutMe ?? [];
+  const alle = [...p.toRate, ...p.acceptedByMe, ...nachzulesen, ...(p.fromHistory ? [p.fromHistory] : [])];
   const optionen = filterOptions(alle, filter);
   const toRate = applyFilter(p.toRate, filter);
   const acceptedByMe = applyFilter(p.acceptedByMe, filter);
+  const nachlesen = applyFilter(nachzulesen, filter);
   // Gefiltert wird die Liste, nicht die Anzeige: eine offene Änderung bleibt
   // sichtbar, auch wenn sie gerade nicht zur Suche passt.
   const sel = alle.find(c => c.id === p.selectedId) ?? toRate[0] ?? acceptedByMe[0] ?? p.fromHistory ?? undefined;
@@ -70,8 +76,12 @@ export function ChangesTab(p: Props) {
     </EmptyState>
   );
 
-  const leer = toRate.length === 0 && acceptedByMe.length === 0;
+  const leer = toRate.length === 0 && acceptedByMe.length === 0 && nachlesen.length === 0;
   const auswahl = (id: string) => p.onSelect(id);
+  const imNachlesen = (id?: string) => !!id && nachzulesen.some(c => c.id === id);
+  // Eine Auswahl aus der Leseliste klappt den Abschnitt auf — sonst zeigt die
+  // rechte Seite eine Änderung, die links nirgends markiert ist.
+  const nachlesenOffen = nachlesenAufgeklappt || imNachlesen(sel?.id);
 
   return (
     <div className="flex-1 flex min-h-0">
@@ -111,6 +121,40 @@ export function ChangesTab(p: Props) {
             <FundstelleZeile change={c} filter={filter} />
           </div>
         ))}
+        {/* Leseliste, kein Arbeitsstapel: eingeklappt, gedämpft, ohne Zahl im
+            Symbol. Wer sie ignoriert, blockiert nichts. */}
+        {nachlesen.length > 0 && (
+          <>
+            <button onClick={() => setNachlesenAufgeklappt(!nachlesenOffen)}
+              className="w-full flex items-center gap-1.5 px-3.5 pt-3.5 pb-1.5 text-[10.5px] tracking-[0.08em] text-ctp-subtext0 font-semibold hover:text-ctp-text transition-colors">
+              <span className="shrink-0 text-[9px]">{nachlesenOffen ? "▾" : "▸"}</span>
+              <span>OHNE MICH ENTSCHIEDEN</span>
+              <span className="text-ctp-overlay0">{nachlesen.length}</span>
+            </button>
+            {nachlesenOffen && (
+              <>
+                {nachlesen.map(c => (
+                  <div key={c.id} onClick={() => auswahl(c.id)}
+                    className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
+                      c.id === sel?.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
+                    <div className="flex items-center gap-2 opacity-60 min-w-0">
+                      <span className="text-ctp-overlay1 text-[11px] shrink-0">◦</span>
+                      <span className="font-mono text-[11.5px] text-ctp-subtext1 truncate">{c.filePath.split("/").pop()}</span>
+                      <LevelPill filePath={c.filePath} />
+                    </div>
+                    <FundstelleZeile change={c} filter={filter} />
+                  </div>
+                ))}
+                {p.onSeen && (
+                  <button onClick={() => p.onSeen!(nachlesen.map(c => c.id))}
+                    className="mx-3.5 my-2 rounded-lg px-3 py-1.5 text-[11.5px] text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors">
+                    Alle als gesehen markieren
+                  </button>
+                )}
+              </>
+            )}
+          </>
+        )}
         {leer && (
           <div className="px-3.5 py-4 text-[11.5px] text-ctp-subtext0 leading-relaxed">
             Keine Änderung passt zur Suche.
@@ -137,7 +181,8 @@ export function ChangesTab(p: Props) {
 
       {sel
         ? <Detail key={sel.id} sel={sel} guardianId={p.guardianId} guardians={p.guardians}
-            ausDemVerlauf={!!p.fromHistory && p.fromHistory.id === sel.id} onVote={p.onVote} />
+            ausDemVerlauf={!!p.fromHistory && p.fromHistory.id === sel.id}
+            nachlesen={imNachlesen(sel.id)} onSeen={p.onSeen} onVote={p.onVote} />
         : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center px-6 pb-12">
@@ -155,8 +200,9 @@ export function ChangesTab(p: Props) {
   );
 }
 
-function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
+function Detail({ sel, guardianId, guardians, ausDemVerlauf, nachlesen, onSeen, onVote }: {
   sel: ChangeWithVotes; guardianId: string; guardians?: Guardian[]; ausDemVerlauf: boolean;
+  nachlesen?: boolean; onSeen?: (ids: string[]) => void;
   onVote: (id: string, status: VoteStatus, comment: string) => void;
 }) {
   // Der Entwurf hängt an genau dieser Änderung — der key beim Aufruf sorgt
@@ -182,6 +228,7 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
           {sel.previousPath && <span className="text-[10px] font-bold tracking-wide text-ctp-blue bg-ctp-blue/20 rounded px-1.5 py-0.5 shrink-0">
             {moveLabel(sel.previousPath, sel.filePath).toUpperCase()}</span>}
           {ausDemVerlauf && <span className="text-[10px] font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1.5 py-0.5 shrink-0">VON ALLEN AKZEPTIERT</span>}
+          {nachlesen && <span className="text-[10px] font-bold tracking-wide text-ctp-mauve bg-ctp-mauve/20 rounded px-1.5 py-0.5 shrink-0">OHNE DICH ENTSCHIEDEN</span>}
           <span className="font-mono text-[11px] text-ctp-subtext0 bg-ctp-surface0 border border-ctp-surface1 rounded px-1.5 py-0.5 shrink-0">{sel.commitShort}</span>
         </div>
         <div className="text-xs text-ctp-subtext0 mt-1">{sel.summary} · {sel.authorName}{selDate ? ` · ${selDate}` : ""}</div>
@@ -221,7 +268,22 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
       </div>
 
       <div className="border-t border-ctp-surface0 bg-ctp-mantle px-5 py-3">
-        {meineBewertungSteht && !draft && (
+        {/* Nachlesen statt Nachvoten: die Änderung ist entschieden. „Gesehen"
+            hakt sie ab, „Einspruch" macht sie wieder zum Streitfall. */}
+        {nachlesen && !draft && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-xs text-ctp-subtext0 flex-1">
+              Während deiner Abwesenheit von den anwesenden Hütern akzeptiert.
+            </span>
+            {onSeen && (
+              <button onClick={() => onSeen([sel.id])}
+                className="rounded-lg px-4 py-2 text-[12.5px] font-semibold bg-ctp-surface0 text-ctp-text border border-ctp-surface1 hover:bg-ctp-surface1 transition-colors whitespace-nowrap">Gesehen</button>
+            )}
+            <button onClick={() => setDraft({ status: "klaerung", comment: "" })}
+              className="rounded-lg px-4 py-2 text-[12.5px] font-semibold bg-ctp-yellow/20 text-ctp-yellow border border-ctp-yellow/40 hover:bg-ctp-yellow/25 transition-colors whitespace-nowrap">Einspruch</button>
+          </div>
+        )}
+        {!nachlesen && meineBewertungSteht && !draft && (
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-xs text-ctp-subtext0 flex-1 whitespace-nowrap">Deine Bestätigung steht aus:</span>
             <button onClick={() => onVote(sel.id, "akzeptiert", "")}
@@ -232,7 +294,7 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
               className="rounded-lg px-4 py-2 text-[12.5px] font-semibold bg-ctp-red/20 text-ctp-red border border-ctp-red/40 hover:bg-ctp-red/25 transition-colors whitespace-nowrap">✕ Abgelehnt</button>
           </div>
         )}
-        {draft && meineBewertungSteht && (
+        {draft && (meineBewertungSteht || nachlesen) && (
           <div>
             <div className={`text-xs font-semibold mb-1.5 ${statusText(draft.status)}`}>{STATUS_LABELS[draft.status]} — Kommentar erforderlich</div>
             <textarea value={draft.comment} onChange={e => setDraft({ ...draft, comment: e.target.value })}
@@ -246,7 +308,7 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
             </div>
           </div>
         )}
-        {mine && mine.status !== "offen" && (
+        {mine && mine.status !== "offen" && !nachlesen && (
           <div className="flex items-center gap-3">
             <span className="text-[12.5px] text-ctp-subtext0 whitespace-nowrap">Deine Bewertung:</span>
             <span className={`text-[12.5px] font-semibold whitespace-nowrap ${statusText(mine.status)}`}>{STATUS_LABELS[mine.status]}</span>

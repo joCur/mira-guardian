@@ -15,7 +15,7 @@ function fakeApi(ids = ["c1", "c2", "c3"], over: Partial<any> = {}, alleAkzeptie
   const changes = new Map<string, ChangeWithVotes>(ids.map(id => [id, ch(id)]));
   const fertig = new Set(alleAkzeptiert);
   for (const id of fertig) {
-    changes.set(id, ch(id, { votes: [{ changeId: id, guardianId: "g1", status: "akzeptiert", comment: null, updatedAt: "t" }] }));
+    changes.set(id, ch(id, { votes: [{ changeId: id, guardianId: "g1", status: "akzeptiert", comment: null, updatedAt: "t", seenAt: null }] }));
   }
   const mine = (c: ChangeWithVotes) => c.votes.find(v => v.guardianId === "g1")?.status;
   return {
@@ -34,7 +34,7 @@ function fakeApi(ids = ["c1", "c2", "c3"], over: Partial<any> = {}, alleAkzeptie
     vote: vi.fn(async (id: string, status: string, comment: string) => {
       // Eine eigene Bewertung öffnet die Änderung wieder für das Team.
       fertig.delete(id);
-      const updated = ch(id, { votes: [{ changeId: id, guardianId: "g1", status: status as any, comment: comment || null, updatedAt: "t" }] });
+      const updated = ch(id, { votes: [{ changeId: id, guardianId: "g1", status: status as any, comment: comment || null, updatedAt: "t", seenAt: null }] });
       changes.set(id, updated);
       return updated;
     }),
@@ -157,5 +157,70 @@ describe("aus dem Verlauf geöffnete Änderung", () => {
     await store.getState().select("c9");
     expect(store.getState().selectedId).toBe("c1");
     expect(store.getState().fromHistory).toBeNull();
+  });
+});
+
+describe("guardian store — ohne mich Entschiedenes", () => {
+  const nachzulesen = ch("n1", {
+    votes: [{ changeId: "n1", guardianId: "g1", status: "uebersprungen", comment: null, updatedAt: "t", seenAt: null }],
+  });
+
+  /** Ein Server, der eine Leseliste liefert und Abgehaktes daraus entfernt. */
+  function apiMitLeseliste() {
+    let leseliste = [nachzulesen];
+    return {
+      getChanges: vi.fn(async () => ({
+        toRate: [ch("c1")], acceptedByMe: [], decidedWithoutMe: leseliste, badge: 1,
+      })),
+      getChange: vi.fn(async (id: string) => ch(id)),
+      markSeen: vi.fn(async (ids: string[]) => {
+        leseliste = leseliste.filter(c => !ids.includes(c.id));
+        return { ok: true as const };
+      }),
+      vote: vi.fn(async (id: string) => {
+        // Ein Einspruch macht die Änderung wieder zur Aufgabe.
+        leseliste = leseliste.filter(c => c.id !== id);
+        return ch(id);
+      }),
+    } as any;
+  }
+
+  it("lädt die Leseliste, wählt aber weiter die Arbeitsliste vor", async () => {
+    const store = createGuardianStore(apiMitLeseliste());
+    await store.getState().refresh();
+    expect(store.getState().decidedWithoutMe.map(c => c.id)).toEqual(["n1"]);
+    expect(store.getState().selectedId).toBe("c1");
+  });
+
+  it("ein älterer Server ohne das Feld führt zu einer leeren Liste", async () => {
+    const store = createGuardianStore(fakeApi());
+    await store.getState().refresh();
+    expect(store.getState().decidedWithoutMe).toEqual([]);
+  });
+
+  it("abhaken nimmt den Eintrag aus der Liste", async () => {
+    const api = apiMitLeseliste();
+    const store = createGuardianStore(api);
+    await store.getState().refresh();
+    await store.getState().markSeen(["n1"]);
+    expect(api.markSeen).toHaveBeenCalledWith(["n1"]);
+    expect(store.getState().decidedWithoutMe).toEqual([]);
+  });
+
+  it("abhaken ohne Ids spart den Aufruf", async () => {
+    const api = apiMitLeseliste();
+    const store = createGuardianStore(api);
+    await store.getState().markSeen([]);
+    expect(api.markSeen).not.toHaveBeenCalled();
+  });
+
+  // Wie beim Verlauf: man ist wegen dieser einen Änderung hier, nicht zum
+  // Abarbeiten der Liste — die Auswahl darf nicht wegspringen.
+  it("nach einem Einspruch bleibt die Auswahl stehen", async () => {
+    const store = createGuardianStore(apiMitLeseliste());
+    await store.getState().refresh();
+    await store.getState().select("n1");
+    await store.getState().castVote("n1", "klaerung", "so nicht");
+    expect(store.getState().selectedId).toBe("n1");
   });
 });

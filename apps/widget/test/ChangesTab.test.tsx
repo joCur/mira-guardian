@@ -8,7 +8,7 @@ function change(id: string = "c1", over: Partial<ChangeWithVotes> = {}): ChangeW
   return { id, repo: "r", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
     commitId: "abc1234", commitShort: "abc1234", authorName: "Anna", authorEmail: "a@x.de", committedAt: "t",
     summary: "s", oldMd: "Node 20", newMd: "Node 22", previousPath: null, baselineCommitId: null, cycleId: "cy", firstSeenAt: "t",
-    votes: [{ changeId: id, guardianId: "g1", status: "offen", comment: null, updatedAt: "t" }],
+    votes: [{ changeId: id, guardianId: "g1", status: "offen", comment: null, updatedAt: "t", seenAt: null }],
     adoLink: "http://x", ...over };
 }
 
@@ -16,7 +16,7 @@ function change(id: string = "c1", over: Partial<ChangeWithVotes> = {}): ChangeW
 // mehr, wird aber aus dem Verlauf heraus geöffnet.
 function abgeschlossen(id = "c9"): ChangeWithVotes {
   return change(id, { filePath: "memory-bank/alt.md",
-    votes: [{ changeId: id, guardianId: "g1", status: "akzeptiert", comment: null, updatedAt: "t" }] });
+    votes: [{ changeId: id, guardianId: "g1", status: "akzeptiert", comment: null, updatedAt: "t", seenAt: null }] });
 }
 
 describe("ChangesTab empty state", () => {

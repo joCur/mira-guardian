@@ -3,10 +3,13 @@ CREATE TABLE IF NOT EXISTS setup_state (
   setup_code TEXT NOT NULL,
   initialized_at TEXT
 );
+-- absent_from/absent_until: Abwesenheit als reine Datumsangaben "YYYY-MM-DD",
+-- beide Ränder inklusive. Leer = anwesend.
 CREATE TABLE IF NOT EXISTS guardian (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL,
   initials TEXT NOT NULL, avatar_color TEXT NOT NULL,
-  created_at TEXT NOT NULL, is_founder INTEGER NOT NULL DEFAULT 0
+  created_at TEXT NOT NULL, is_founder INTEGER NOT NULL DEFAULT 0,
+  absent_from TEXT, absent_until TEXT
 );
 -- guardian_id leer = Einladung, die ein neues Hüter-Profil anlegt; gesetzt =
 -- der Code verknüpft ein weiteres Gerät mit genau diesem bestehenden Profil.
@@ -33,9 +36,12 @@ CREATE TABLE IF NOT EXISTS change_item (
   cycle_id TEXT NOT NULL, first_seen_at TEXT NOT NULL,
   UNIQUE (cycle_id, file_path)
 );
+-- seen_at: gesetzt, wenn der Hüter eine ohne ihn entschiedene Änderung
+-- nachgelesen hat. Gehört nur zum Status "uebersprungen".
 CREATE TABLE IF NOT EXISTS vote (
   id TEXT PRIMARY KEY, change_id TEXT NOT NULL, guardian_id TEXT NOT NULL,
   status TEXT NOT NULL, comment TEXT, updated_at TEXT NOT NULL,
+  seen_at TEXT,
   UNIQUE (change_id, guardian_id)
 );
 CREATE TABLE IF NOT EXISTS last_seen (

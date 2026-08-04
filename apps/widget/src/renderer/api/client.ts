@@ -4,7 +4,12 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-export interface ChangesResponse { toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; badge: number }
+export interface ChangesResponse {
+  toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[];
+  /** Ohne mich entschieden, noch nicht nachgelesen. Ein älterer Server lässt das Feld weg. */
+  decidedWithoutMe?: ChangeWithVotes[];
+  badge: number;
+}
 export interface MeetingCounts { abgelehnt: number; klaerung: number; offen: number; gesamt: number }
 export interface MeetingResponse { changes: ChangeWithVotes[]; counts: MeetingCounts }
 export interface HistoryEntry {
@@ -79,6 +84,12 @@ export class ApiClient {
   invite(name: string, email: string) { return this.req<InviteResponse>("POST", "/guardians/invite", { name, email }); }
   /** Zugangscode für ein weiteres Gerät eines bestehenden Hüters. */
   relink(guardianId: string) { return this.req<RelinkCode>("POST", `/guardians/${guardianId}/relink`); }
+  /** Abwesenheit eintragen; zwei leere Werte löschen sie. */
+  setAbsence(guardianId: string, from: string | null, until: string | null) {
+    return this.req<{ guardian: Guardian }>("POST", `/guardians/${guardianId}/absence`, { from, until });
+  }
+  /** Ohne mich Entschiedenes als nachgelesen abhaken. */
+  markSeen(changeIds: string[]) { return this.req<{ ok: true }>("POST", "/me/seen", { changeIds }); }
   getMyDevices() { return this.req<{ devices: Device[] }>("GET", "/me/devices"); }
   revokeDevice(deviceId: string) { return this.req<{ ok: true }>("POST", `/me/devices/${deviceId}/revoke`); }
   getMeeting() { return this.req<MeetingResponse>("GET", "/meeting"); }

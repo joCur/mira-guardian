@@ -1,5 +1,12 @@
-export const VOTE_STATUSES = ["offen", "akzeptiert", "klaerung", "abgelehnt"] as const;
+// "uebersprungen" ist kein Urteil, sondern die festgehaltene Auskunft, dass
+// diese Stimme wegen Abwesenheit nicht eingeholt wurde. Bewusst nicht
+// "akzeptiert": der Verlauf soll keine Zustimmung behaupten, die es nie gab.
+// Nur der Server setzt ihn, über die API ist er nicht wählbar.
+export const VOTE_STATUSES = ["offen", "akzeptiert", "klaerung", "abgelehnt", "uebersprungen"] as const;
 export type VoteStatus = (typeof VOTE_STATUSES)[number];
+
+/** Über die API wählbare Bewertungen — alles außer dem Server-Status. */
+export const VOTE_STATUSES_WAEHLBAR: VoteStatus[] = VOTE_STATUSES.filter(s => s !== "uebersprungen");
 
 // "rename" = umbenannt oder verschoben, ohne dass sich der Inhalt geändert hat.
 // Wurde zusätzlich am Inhalt gearbeitet, bleibt es "modify" — in beiden Fällen
@@ -15,6 +22,9 @@ export interface Guardian {
   avatarColor: string;
   createdAt: string;
   isFounder: boolean;
+  /** Abwesenheit als reine Datumsangaben "YYYY-MM-DD", beide Ränder inklusive. */
+  absentFrom: string | null;
+  absentUntil: string | null;
 }
 
 export interface Vote {
@@ -23,6 +33,8 @@ export interface Vote {
   status: VoteStatus;
   comment: string | null;
   updatedAt: string;
+  /** Gesetzt, wenn ich eine ohne mich entschiedene Änderung nachgelesen habe. */
+  seenAt: string | null;
 }
 
 export interface Change {

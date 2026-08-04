@@ -1,6 +1,6 @@
 export interface Sink { send(data: string): void }
 export type HubEvent = {
-  type: "change:new" | "change:updated" | "vote:updated" | "guardian:added";
+  type: "change:new" | "change:updated" | "vote:updated" | "guardian:added" | "guardian:updated";
   changeId?: string;
 };
 

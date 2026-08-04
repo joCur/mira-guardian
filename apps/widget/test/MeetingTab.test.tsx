@@ -8,13 +8,13 @@ function ch(id: string, votes: Array<[string, VoteStatus, string | null]>): Chan
   return { id, repo: "r", branch: "main", filePath: `memory-bank/${id}.md`, changeKind: "modify",
     commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
     summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, cycleId: "cy", firstSeenAt: "t",
-    votes: votes.map(([g, status, comment]) => ({ changeId: id, guardianId: g, status, comment, updatedAt: "t" })),
+    votes: votes.map(([g, status, comment]) => ({ changeId: id, guardianId: g, status, comment, updatedAt: "t", seenAt: null })),
     adoLink: "http://x" };
 }
 
 const guardians = [
-  { id: "g1", name: "Anna Beispiel", email: "a@x.de", initials: "AB", avatarColor: "#fff", createdAt: "t", isFounder: true },
-  { id: "g2", name: "Bert Beispiel", email: "b@x.de", initials: "BB", avatarColor: "#fff", createdAt: "t", isFounder: false },
+  { id: "g1", name: "Anna Beispiel", email: "a@x.de", initials: "AB", avatarColor: "#fff", createdAt: "t", isFounder: true, absentFrom: null, absentUntil: null },
+  { id: "g2", name: "Bert Beispiel", email: "b@x.de", initials: "BB", avatarColor: "#fff", createdAt: "t", isFounder: false, absentFrom: null, absentUntil: null },
 ];
 
 const meeting = (changes: ChangeWithVotes[], counts: Partial<MeetingResponse["counts"]> = {}): MeetingResponse => ({

@@ -1,9 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { VOTE_STATUSES, STATUS_LABELS, fileType, memoryLevel } from "../src/index.js";
+import { VOTE_STATUSES, VOTE_STATUSES_WAEHLBAR, STATUS_LABELS, fileType, memoryLevel } from "../src/index.js";
 
 describe("shared/status", () => {
-  it("exposes the four vote statuses in order", () => {
-    expect(VOTE_STATUSES).toEqual(["offen", "akzeptiert", "klaerung", "abgelehnt"]);
+  it("exposes the vote statuses in order", () => {
+    expect(VOTE_STATUSES).toEqual(["offen", "akzeptiert", "klaerung", "abgelehnt", "uebersprungen"]);
+  });
+
+  // "uebersprungen" setzt nur der Server beim Abschluss einer Änderung.
+  it("keeps the server-only status out of the selectable ones", () => {
+    expect(VOTE_STATUSES_WAEHLBAR).toEqual(["offen", "akzeptiert", "klaerung", "abgelehnt"]);
   });
 
   it("labels are the German UI strings", () => {

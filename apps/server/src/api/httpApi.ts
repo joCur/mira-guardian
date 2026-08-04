@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
-import type { ChangeWithVotes, VoteStatus } from "@guardian/shared";
+import { VOTE_STATUSES_WAEHLBAR, type ChangeWithVotes, type VoteStatus } from "@guardian/shared";
 import type { Store } from "../db/store.js";
 import type { ChangeService } from "../domain/changeService.js";
 import { AuthService, AuthError } from "../domain/authService.js";
@@ -99,6 +99,7 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
       return {
         toRate: changeService.toRate(me).map(c => withVotes(c.id)!),
         acceptedByMe: changeService.acceptedByMe(me).map(c => withVotes(c.id)!),
+        decidedWithoutMe: changeService.decidedWithoutMe(me).map(c => withVotes(c.id)!),
         badge: changeService.badgeCount(me),
       };
     });
@@ -112,13 +113,32 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
       const id = (req.params as any).id;
       const { status, comment } = req.body as { status: VoteStatus; comment?: string };
       if (!store.getChange(id)) return reply.code(404).send({ error: "unbekannt" });
+      // "uebersprungen" setzt nur der Server beim Abschluss; alles außerhalb der
+      // wählbaren Bewertungen wäre stumm in der Datenbank gelandet.
+      if (!VOTE_STATUSES_WAEHLBAR.includes(status))
+        return reply.code(400).send({ error: "Unbekannte Bewertung." });
       const trimmed = (comment ?? "").trim();
       if (COMMENT_REQUIRED.includes(status) && trimmed.length < 5)
         return reply.code(400).send({ error: "Kommentar erforderlich (min. 5 Zeichen)." });
-      store.upsertVote({ changeId: id, guardianId: req.guardian!.id, status,
+      const me = req.guardian!.id;
+      store.upsertVote({ changeId: id, guardianId: me, status,
         comment: COMMENT_REQUIRED.includes(status) ? trimmed : null, updatedAt: now() });
+      // Eine eigene Stimme ersetzt das Übersprungen-Werden: der Vermerk
+      // "nachgelesen" gehört nicht mehr dazu.
+      store.clearSeen(id, me);
+      changeService.settle(id, now());
       hub.broadcast({ type: "vote:updated", changeId: id });
       return withVotes(id)!;
+    });
+
+    // Nachgelesen, was ohne mich entschieden wurde. Kein Urteil — nur das
+    // Abhaken einer Leseliste, deshalb ohne Kommentar und ohne Toast.
+    secured.post("/me/seen", async (req, reply) => {
+      const { changeIds } = (req.body ?? {}) as { changeIds?: unknown };
+      if (!Array.isArray(changeIds) || changeIds.some(id => typeof id !== "string"))
+        return reply.code(400).send({ error: "changeIds muss eine Liste von Ids sein." });
+      store.markSeen(req.guardian!.id, changeIds as string[], now());
+      return { ok: true as const };
     });
 
     // Ein Bild zur Änderung: die geänderte Bilddatei selbst, oder — mit
@@ -154,6 +174,29 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
       const { name, email } = req.body as any;
       try { return authService.invite(req.guardian!.id, name, email); }
       catch (e) { if (e instanceof AuthError) return reply.code(400).send({ error: e.message }); throw e; }
+    });
+
+    // Abwesenheit eintragen oder mit leerem Body löschen. Jeder Hüter darf sie
+    // für jeden setzen: wer krank ist, trägt sich nicht selbst ein. Alles ist im
+    // Hüter-Tab für alle sichtbar.
+    secured.post("/guardians/:id/absence", async (req, reply) => {
+      const id = (req.params as any).id;
+      if (!store.getGuardian(id)) return reply.code(404).send({ error: "unbekannt" });
+      const { from, until } = (req.body ?? {}) as { from?: string | null; until?: string | null };
+      const leer = !from && !until;
+      if (!leer) {
+        const datum = /^\d{4}-\d{2}-\d{2}$/;
+        if (typeof from !== "string" || typeof until !== "string" || !datum.test(from) || !datum.test(until))
+          return reply.code(400).send({ error: "Von und bis müssen Datumsangaben im Format JJJJ-MM-TT sein." });
+        if (until < from)
+          return reply.code(400).send({ error: "Das Ende darf nicht vor dem Beginn liegen." });
+      }
+      store.setAbsence(id, leer ? null : from!, leer ? null : until!);
+      // Eine geänderte Abwesenheit kann Änderungen abschlussreif machen, ohne
+      // dass jemand bewertet — deshalb hier über den ganzen Bestand.
+      changeService.settleAll(now());
+      hub.broadcast({ type: "guardian:updated" });
+      return { guardian: store.getGuardian(id)! };
     });
 
     // Zugangscode für ein weiteres Gerät eines *bestehenden* Hüters — der Weg

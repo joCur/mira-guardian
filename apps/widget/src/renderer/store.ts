@@ -10,6 +10,12 @@ export interface GuardianState {
   /** Von mir akzeptiert, wartet auf die übrigen Hüter. */
   acceptedByMe: ChangeWithVotes[];
   /**
+   * Während meiner Abwesenheit ohne mich entschieden und noch nicht
+   * nachgelesen. Eine Leseliste, kein Arbeitsstapel: sie zählt nicht ins Badge
+   * und wird nie automatisch ausgewählt.
+   */
+  decidedWithoutMe: ChangeWithVotes[];
+  /**
    * Einzeln nachgeladene Änderung, die in keiner der beiden Listen steht, weil
    * alle Hüter sie akzeptiert haben. Der Verlauf öffnet genau solche — ohne
    * diesen Platz fiel der Änderungen-Tab auf die erste offene Änderung zurück.
@@ -20,15 +26,18 @@ export interface GuardianState {
   refresh: () => Promise<void>;
   select: (id: string) => Promise<void>;
   castVote: (id: string, status: VoteStatus, comment: string) => Promise<void>;
+  /** Nachgelesen — nimmt die Änderungen aus der Leseliste. */
+  markSeen: (ids: string[]) => Promise<void>;
   onWsEvent: (e: HubEvent) => void;
 }
 
-type Lists = { toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[] };
-const listed = (l: Lists, id: string) => [...l.toRate, ...l.acceptedByMe].some(c => c.id === id);
+type Lists = { toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; decidedWithoutMe?: ChangeWithVotes[] };
+const listed = (l: Lists, id: string) =>
+  [...l.toRate, ...l.acceptedByMe, ...(l.decidedWithoutMe ?? [])].some(c => c.id === id);
 
 export function createGuardianStore(api: ApiClient) {
   return createStore<GuardianState>((set, get) => ({
-    toRate: [], acceptedByMe: [], fromHistory: null, badge: 0, selectedId: null,
+    toRate: [], acceptedByMe: [], decidedWithoutMe: [], fromHistory: null, badge: 0, selectedId: null,
 
     async refresh() {
       const r = await api.getChanges();
@@ -39,9 +48,19 @@ export function createGuardianStore(api: ApiClient) {
       const fromHistory = held && !listed(r, held.id) ? held : null;
       const stillValid = sel && (listed(r, sel) || fromHistory?.id === sel);
       set({
-        toRate: r.toRate, acceptedByMe: r.acceptedByMe, badge: r.badge, fromHistory,
+        toRate: r.toRate, acceptedByMe: r.acceptedByMe,
+        decidedWithoutMe: r.decidedWithoutMe ?? [], badge: r.badge, fromHistory,
+        // Die Leseliste steht bewusst nicht im Rückfall: nach dem Start soll die
+        // Auswahl in der Arbeitsliste landen, nicht in einem eingeklappten
+        // Abschnitt mit Nachlesestoff.
         selectedId: stillValid ? sel : (r.toRate[0]?.id ?? r.acceptedByMe[0]?.id ?? null),
       });
+    },
+
+    async markSeen(ids) {
+      if (ids.length === 0) return;
+      await api.markSeen(ids);
+      await get().refresh();
     },
 
     // Aus dem Verlauf und aus einem Toast kommen Ids, die nicht in der
@@ -58,13 +77,17 @@ export function createGuardianStore(api: ApiClient) {
     async castVote(id, status, comment) {
       const before = get().toRate;
       const wasFromHistory = get().fromHistory?.id === id;
+      // Einspruch aus der Leseliste: dieselbe Lage wie beim Verlauf — man ist
+      // wegen dieser einen Änderung hier, nicht zum Abarbeiten.
+      const wasNachlesen = get().decidedWithoutMe.some(c => c.id === id);
       const updated = await api.vote(id, status, comment);
       const r = await api.getChanges();
       // Aus dem Verlauf geöffnet: die Auswahl bleibt auf dieser Änderung, denn
       // ihretwegen ist man hier. Weiterrücken gilt nur fürs Abarbeiten der Liste.
-      const next = wasFromHistory ? id : nextSelection(before, id, r.toRate);
+      const next = wasFromHistory || wasNachlesen ? id : nextSelection(before, id, r.toRate);
       set({
-        toRate: r.toRate, acceptedByMe: r.acceptedByMe, badge: r.badge,
+        toRate: r.toRate, acceptedByMe: r.acceptedByMe,
+        decidedWithoutMe: r.decidedWithoutMe ?? [], badge: r.badge,
         fromHistory: wasFromHistory ? (listed(r, id) ? null : updated) : get().fromHistory,
         selectedId: next ?? r.acceptedByMe[0]?.id ?? null,
       });

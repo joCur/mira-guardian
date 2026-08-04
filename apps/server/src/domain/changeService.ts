@@ -1,18 +1,85 @@
-import { istBilddatei, type Change, type Vote, type VoteStatus } from "@guardian/shared";
+import {
+  istBilddatei, tagAus, wirksamAbwesende,
+  type Change, type Guardian, type Vote, type VoteStatus,
+} from "@guardian/shared";
 import type { Store } from "../db/store.js";
 
-const RANK: Record<VoteStatus, number> = { abgelehnt: 3, klaerung: 2, offen: 1, akzeptiert: 0 };
+// "uebersprungen" blockiert nichts und steht deshalb gleichauf mit "akzeptiert".
+const RANK: Record<VoteStatus, number> = { abgelehnt: 3, klaerung: 2, offen: 1, akzeptiert: 0, uebersprungen: 0 };
 
 export class ChangeService {
-  constructor(private store: Store) {}
+  constructor(private store: Store, private now: () => string = () => new Date().toISOString()) {}
 
   private votes(changeId: string): Vote[] { return this.store.listVotesByChange(changeId); }
 
-  allAccepted(changeId: string): boolean {
+  /** Wer heute wirksam abwesend ist — mit Untergrenze zwei Anwesende. */
+  private abwesende(now = this.now()): Guardian[] {
+    return wirksamAbwesende(this.store.listGuardians(), tagAus(now));
+  }
+  istAbwesend(guardianId: string, now = this.now()): boolean {
+    return this.abwesende(now).some(g => g.id === guardianId);
+  }
+
+  /**
+   * Abgeschlossen: jeder Hüter hat akzeptiert oder wurde wegen Abwesenheit
+   * übersprungen. Bewusst am gespeicherten Status abgelesen und nicht am
+   * Kalender — sonst fiele der ganze Bestand mit dem Ende einer Abwesenheit in
+   * die Arbeitslisten zurück.
+   */
+  isSettled(changeId: string): boolean {
     const guardians = this.store.listGuardians();
     if (guardians.length === 0) return false;
     const votes = this.votes(changeId);
-    return guardians.every(g => votes.find(v => v.guardianId === g.id)?.status === "akzeptiert");
+    return guardians.every(g => {
+      const s = votes.find(v => v.guardianId === g.id)?.status;
+      return s === "akzeptiert" || s === "uebersprungen";
+    });
+  }
+
+  /**
+   * Schließt eine Änderung ab, wenn alle Anwesenden akzeptiert haben: die
+   * offenen Stimmen der Abwesenden werden auf "uebersprungen" festgeschrieben.
+   * Nur offene Stimmen — ein vor der Abwesenheit abgegebenes "abgelehnt" oder
+   * "klaerung" blockiert weiter, sonst ließe sich ein Einspruch durch Urlaub
+   * wegräumen. Gibt zurück, ob etwas übersprungen wurde.
+   */
+  settle(changeId: string, now: string): boolean {
+    const abwesend = this.abwesende(now);
+    if (abwesend.length === 0) return false;
+    const abwesendIds = new Set(abwesend.map(g => g.id));
+    const votes = this.votes(changeId);
+    const statusOf = (id: string) => votes.find(v => v.guardianId === id)?.status;
+
+    for (const g of this.store.listGuardians()) {
+      if (abwesendIds.has(g.id)) continue;
+      if (statusOf(g.id) !== "akzeptiert") return false;
+    }
+    const zuUeberspringen: string[] = [];
+    for (const g of abwesend) {
+      const s = statusOf(g.id);
+      if (s === "akzeptiert" || s === "uebersprungen") continue;
+      if (s !== "offen") return false;
+      zuUeberspringen.push(g.id);
+    }
+    if (zuUeberspringen.length === 0) return false;
+    for (const guardianId of zuUeberspringen) {
+      this.store.upsertVote({ changeId, guardianId, status: "uebersprungen", comment: null, updatedAt: now });
+    }
+    return true;
+  }
+
+  /**
+   * Derselbe Abschluss über den ganzen Bestand. Nötig, wenn sich eine
+   * Abwesenheit ändert: dann können Änderungen abschlussreif werden, ohne dass
+   * jemand eine Bewertung abgegeben hat. Gibt die Zahl der abgeschlossenen zurück.
+   */
+  settleAll(now: string): number {
+    let abgeschlossen = 0;
+    for (const c of this.store.listAllChanges()) {
+      if (this.isSettled(c.id)) continue;
+      if (this.settle(c.id, now)) abgeschlossen++;
+    }
+    return abgeschlossen;
   }
 
   stripeStatus(changeId: string): VoteStatus {
@@ -28,7 +95,7 @@ export class ChangeService {
   // Sortierung worst-first: abgelehnt → Klärungsbedarf → ausstehend.
   openChanges(): Change[] {
     return this.store.listAllChanges()
-      .filter(c => !this.allAccepted(c.id))
+      .filter(c => !this.isSettled(c.id))
       .sort((a, b) => RANK[this.stripeStatus(b.id)] - RANK[this.stripeStatus(a.id)]);
   }
 
@@ -46,9 +113,23 @@ export class ChangeService {
     return this.openChanges().filter(c => this.myStatus(c.id, guardianId) === "akzeptiert");
   }
 
+  // Wer abwesend ist, bekommt keine Zahl aufs Symbol: die Liste wartet nicht
+  // auf ihn, und nach der Rückkehr steht die Leseliste bereit.
   badgeCount(guardianId: string): number {
+    if (this.istAbwesend(guardianId)) return 0;
     return this.store.listAllChanges()
-      .filter(c => !this.allAccepted(c.id) && this.myStatus(c.id, guardianId) === "offen").length;
+      .filter(c => !this.isSettled(c.id) && this.myStatus(c.id, guardianId) === "offen").length;
+  }
+
+  /**
+   * Ohne mich entschieden: meine übersprungenen, noch nicht nachgelesenen
+   * Stimmen. Nur zu abgeschlossenen Änderungen — wurde eine wieder strittig,
+   * ist sie eine echte Aufgabe und steht in toRate, nicht zweimal da.
+   */
+  decidedWithoutMe(guardianId: string): Change[] {
+    return this.store.listUnseenSkipped(guardianId)
+      .filter(e => this.isSettled(e.changeId))
+      .map(e => e.change);
   }
 
   // Echte Streitfälle fürs Team: abgelehnt oder mit Klärungsbedarf. Rein
@@ -79,7 +160,7 @@ export class ChangeService {
   // Neuer Hüter: bekommt für alles noch Unerledigte eine offene Bewertung.
   backfillVotesForGuardian(guardianId: string, now: string) {
     for (const c of this.store.listAllChanges()) {
-      if (this.allAccepted(c.id)) continue;
+      if (this.isSettled(c.id)) continue;
       const has = this.votes(c.id).some(v => v.guardianId === guardianId);
       if (!has) this.store.upsertVote({ changeId: c.id, guardianId, status: "offen", comment: null, updatedAt: now });
     }

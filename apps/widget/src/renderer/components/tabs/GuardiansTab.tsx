@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { Device, Guardian, RelinkCode } from "@guardian/shared";
+import { abwesenheitOhneWirkung, istAbwesendLaut, kurzesDatum, MINDESTENS_ANWESEND, tagAus } from "@guardian/shared";
 import type { UpdateStatus } from "../../../types/update.js";
 
 interface Props {
@@ -18,6 +19,84 @@ function zeitpunkt(iso: string): string {
     ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * Abwesenheit eines Hüters — eintragen, ändern, löschen. Bewusst für *jeden*
+ * Hüter bedienbar und nicht nur für einen selbst: wer krank ist, trägt sich
+ * nicht selbst ein.
+ */
+function AbwesenheitZeile({ g, guardians, heute, onAbsence }: {
+  g: Guardian; guardians: Guardian[]; heute: string;
+  onAbsence: (guardianId: string, from: string | null, until: string | null) => Promise<void>;
+}) {
+  const [offen, setOffen] = useState(false);
+  const [von, setVon] = useState(g.absentFrom ?? heute);
+  const [bis, setBis] = useState(g.absentUntil ?? "");
+  const [fehler, setFehler] = useState("");
+  const abwesend = istAbwesendLaut(g, heute);
+  const geplant = !abwesend && !!g.absentFrom && !!g.absentUntil && g.absentFrom > heute;
+  const wirkungslos = abwesend && abwesenheitOhneWirkung(guardians, heute);
+
+  async function speichern(from: string | null, until: string | null) {
+    setFehler("");
+    try { await onAbsence(g.id, from, until); setOffen(false); }
+    catch (e) { setFehler((e as Error).message); }
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        {abwesend && (
+          <span className="text-[11px] font-semibold text-ctp-mauve bg-ctp-mauve/15 rounded-full px-2.5 py-[3px]">
+            abwesend bis {kurzesDatum(g.absentUntil!)}
+          </span>
+        )}
+        {geplant && (
+          <span className="text-[11px] text-ctp-subtext0">
+            abwesend {kurzesDatum(g.absentFrom!)}–{kurzesDatum(g.absentUntil!)}
+          </span>
+        )}
+        <button onClick={() => setOffen(!offen)}
+          className="rounded-lg px-2.5 py-[5px] text-[11px] text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors">
+          {abwesend || geplant ? "Abwesenheit ändern" : "Abwesenheit eintragen"}
+        </button>
+      </div>
+      {wirkungslos && (
+        <div className="text-[11.5px] text-ctp-yellow mt-1.5 leading-relaxed">
+          Wirkt derzeit nicht: es müssen mindestens {MINDESTENS_ANWESEND} Hüter anwesend bleiben.
+          Solange gilt weiter die Bestätigung aller.
+        </div>
+      )}
+      {offen && (
+        <div className="mt-2 rounded-lg border border-ctp-surface1 bg-ctp-crust/40 px-3.5 py-3">
+          <div className="flex items-end gap-2.5 flex-wrap">
+            <label className="flex flex-col gap-1">
+              <span className="text-[10.5px] tracking-[0.06em] text-ctp-subtext0 font-semibold">VON</span>
+              <input type="date" value={von} onChange={e => setVon(e.target.value)}
+                className="bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-[12.5px] text-ctp-text px-2.5 py-1.5 outline-none" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10.5px] tracking-[0.06em] text-ctp-subtext0 font-semibold">BIS</span>
+              <input type="date" value={bis} onChange={e => setBis(e.target.value)}
+                className="bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-[12.5px] text-ctp-text px-2.5 py-1.5 outline-none" />
+            </label>
+            <button disabled={!von || !bis || bis < von} onClick={() => void speichern(von, bis)}
+              className="rounded-lg px-3.5 py-2 text-[12px] font-semibold bg-ctp-mauve/20 text-ctp-mauve border border-ctp-mauve/40 hover:bg-ctp-mauve/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Speichern</button>
+            {(g.absentFrom || g.absentUntil) && (
+              <button onClick={() => void speichern(null, null)}
+                className="rounded-lg px-3 py-2 text-[12px] text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors">Löschen</button>
+            )}
+          </div>
+          <div className="text-[11px] text-ctp-overlay0 mt-2 leading-relaxed">
+            Beide Tage zählen mit. Während der Abwesenheit reicht die Bestätigung der anwesenden
+            Hüter; die übersprungenen Änderungen stehen nach der Rückkehr zum Nachlesen bereit.
+          </div>
+          {fehler && <div className="text-[11.5px] text-ctp-red mt-2">{fehler}</div>}
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Klartext zum Update-Zustand für die Versionsanzeige. */
 export function updateSummary(u: UpdateStatus): string {
   switch (u.phase) {
@@ -34,10 +113,12 @@ export function updateSummary(u: UpdateStatus): string {
 }
 
 export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOut, appVersion, serverVersion,
-  devices, onRelink, onRevoke, update, onCheckUpdate }:
+  devices, onRelink, onRevoke, onAbsence, update, onCheckUpdate }:
   Props & { serverUrl: string; onSignOut: () => Promise<void>; appVersion: string; serverVersion: string | null;
     devices: Device[]; onRelink: (guardianId: string) => Promise<RelinkCode>; onRevoke: (deviceId: string) => Promise<void>;
+    onAbsence?: (guardianId: string, from: string | null, until: string | null) => Promise<void>;
     update: UpdateStatus; onCheckUpdate: () => void }) {
+  const heute = tagAus(new Date().toISOString());
   // Nur zwei bekannte, verschiedene Stände sind ein Hinweis. Ein Server, der
   // seine Version nicht nennt, ist älter als diese Anzeige, und die eigene
   // Version wird nachgeladen — beides sagt nichts darüber, ob die Stände
@@ -65,7 +146,10 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-[640px] mx-auto">
         <div className="text-[19px] font-bold text-ctp-text">Hüter</div>
-        <div className="text-[12.5px] text-ctp-subtext0 mt-1">Jede Änderung an der Memory-Bank braucht die Bestätigung aller verknüpften Hüter.</div>
+        <div className="text-[12.5px] text-ctp-subtext0 mt-1">
+          Jede Änderung an der Memory-Bank braucht die Bestätigung aller verknüpften Hüter —
+          während einer eingetragenen Abwesenheit die der anwesenden.
+        </div>
         <div className="mt-[18px] flex flex-col gap-2">
           {guardians.map(g => (
             <div key={g.id} className="bg-ctp-mantle border border-ctp-surface0 rounded-[10px] px-4 py-3">
@@ -84,6 +168,10 @@ export function GuardiansTab({ guardians, pending, onInvite, serverUrl, onSignOu
                   Gerät verknüpfen
                 </button>
               </div>
+              {onAbsence && (
+                <AbwesenheitZeile key={`${g.absentFrom}-${g.absentUntil}`}
+                  g={g} guardians={guardians} heute={heute} onAbsence={onAbsence} />
+              )}
               {relinkError[g.id] && (
                 <div className="text-[11.5px] text-ctp-red mt-2">{relinkError[g.id]}</div>
               )}

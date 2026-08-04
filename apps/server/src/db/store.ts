@@ -39,6 +39,13 @@ export class Store {
       this.db.exec("ALTER TABLE device ADD COLUMN created_at TEXT");
       this.db.exec("UPDATE device SET created_at = last_seen_at WHERE created_at IS NULL");
     }
+    if (!columns("guardian").includes("absent_from")) {
+      this.db.exec("ALTER TABLE guardian ADD COLUMN absent_from TEXT");
+      this.db.exec("ALTER TABLE guardian ADD COLUMN absent_until TEXT");
+    }
+    if (!columns("vote").includes("seen_at")) {
+      this.db.exec("ALTER TABLE vote ADD COLUMN seen_at TEXT");
+    }
   }
 
   getSetupState() {
@@ -53,13 +60,21 @@ export class Store {
     this.db.prepare("UPDATE setup_state SET initialized_at = ? WHERE id = 1").run(now);
   }
 
-  insertGuardian(g: Guardian) {
+  // Ein neu angelegter Hüter ist nie abwesend, deshalb bleiben die beiden
+  // Datumsspalten hier außen vor.
+  insertGuardian(g: Omit<Guardian, "absentFrom" | "absentUntil">) {
     this.db.prepare(`INSERT INTO guardian (id,name,email,initials,avatar_color,created_at,is_founder)
       VALUES (@id,@name,@email,@initials,@avatarColor,@createdAt,@isFounder)`)
       .run({ ...g, isFounder: g.isFounder ? 1 : 0 });
   }
   private mapGuardian = (r: any): Guardian => ({ id: r.id, name: r.name, email: r.email,
-    initials: r.initials, avatarColor: r.avatar_color, createdAt: r.created_at, isFounder: !!r.is_founder });
+    initials: r.initials, avatarColor: r.avatar_color, createdAt: r.created_at, isFounder: !!r.is_founder,
+    absentFrom: r.absent_from ?? null, absentUntil: r.absent_until ?? null });
+  /** Abwesenheit setzen oder mit zwei leeren Werten löschen. */
+  setAbsence(guardianId: string, from: string | null, until: string | null) {
+    this.db.prepare("UPDATE guardian SET absent_from = ?, absent_until = ? WHERE id = ?")
+      .run(from, until, guardianId);
+  }
   listGuardians(): Guardian[] {
     return (this.db.prepare("SELECT * FROM guardian ORDER BY created_at").all() as any[]).map(this.mapGuardian);
   }
@@ -231,8 +246,11 @@ export class Store {
   }
 
   private mapVote = (r: any): Vote => ({ changeId: r.change_id, guardianId: r.guardian_id,
-    status: r.status as VoteStatus, comment: r.comment, updatedAt: r.updated_at });
-  upsertVote(v: Vote) {
+    status: r.status as VoteStatus, comment: r.comment, updatedAt: r.updated_at,
+    seenAt: r.seen_at ?? null });
+  // seen_at gehört nicht zur Bewertung selbst: eine abgegebene Stimme löscht es
+  // (siehe markSeen/clearSeen), ein Upsert lässt es unangetastet.
+  upsertVote(v: Omit<Vote, "seenAt">) {
     this.db.prepare(`INSERT INTO vote (id,change_id,guardian_id,status,comment,updated_at)
       VALUES (@id,@changeId,@guardianId,@status,@comment,@updatedAt)
       ON CONFLICT (change_id,guardian_id) DO UPDATE SET
@@ -245,7 +263,29 @@ export class Store {
   listVotesByCycle(cycleId: string): Vote[] {
     return (this.db.prepare(`SELECT v.* FROM vote v JOIN change_item c ON c.id = v.change_id WHERE c.cycle_id = ?`).all(cycleId) as any[]).map(this.mapVote);
   }
+  // Eine neue Fassung der Datei ist neu zu bewerten — und neu zu lesen, deshalb
+  // fällt seen_at mit. Sonst gälte der neue Stand als bereits nachgelesen.
   resetVotesForChange(changeId: string, now: string) {
-    this.db.prepare("UPDATE vote SET status = 'offen', comment = NULL, updated_at = ? WHERE change_id = ?").run(now, changeId);
+    this.db.prepare("UPDATE vote SET status = 'offen', comment = NULL, updated_at = ?, seen_at = NULL WHERE change_id = ?").run(now, changeId);
+  }
+  /** Nachgelesen: nur eigene übersprungene Stimmen lassen sich abhaken. */
+  markSeen(guardianId: string, changeIds: string[], now: string) {
+    const stmt = this.db.prepare(
+      "UPDATE vote SET seen_at = ? WHERE guardian_id = ? AND change_id = ? AND status = 'uebersprungen'");
+    for (const id of changeIds) stmt.run(now, guardianId, id);
+  }
+  clearSeen(changeId: string, guardianId: string) {
+    this.db.prepare("UPDATE vote SET seen_at = NULL WHERE change_id = ? AND guardian_id = ?")
+      .run(changeId, guardianId);
+  }
+  /** Meine übersprungenen Stimmen, die ich noch nicht nachgelesen habe. */
+  listUnseenSkipped(guardianId: string): Array<Vote & { change: Change }> {
+    const rows = this.db.prepare(`
+      SELECT v.*, c.id AS c_id FROM vote v
+      JOIN change_item c ON c.id = v.change_id
+      WHERE v.guardian_id = ? AND v.status = 'uebersprungen' AND v.seen_at IS NULL
+      ORDER BY v.updated_at DESC
+    `).all(guardianId) as any[];
+    return rows.map(r => ({ ...this.mapVote(r), change: this.getChange(r.c_id)! }));
   }
 }
