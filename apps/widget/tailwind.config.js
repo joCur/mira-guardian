@@ -1,12 +1,25 @@
 import catppuccin from "@catppuccin/tailwindcss";
 
+const FONT_STACK = [
+  '"JetBrainsMono Nerd Font"',
+  '"JetBrains Mono"',
+  "ui-monospace",
+  "SFMono-Regular",
+  "Menlo",
+  "monospace",
+];
+
 export default {
   content: ["./src/renderer/index.html", "./src/renderer/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Die ganze Oberfläche läuft auf JetBrains Mono — `sans` und `mono` sind
+      // absichtlich identisch, damit `font-mono` an Pfaden/Codes nichts ändert.
+      // Wer die Nerd-Font-Variante installiert hat, bekommt sie samt Icon-Glyphen;
+      // sonst greift das gebündelte @fontsource-JetBrains-Mono (metrisch gleich).
       fontFamily: {
-        sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
-        mono: ['"JetBrains Mono"', "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        sans: FONT_STACK,
+        mono: FONT_STACK,
       },
     },
   },

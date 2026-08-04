@@ -15,30 +15,30 @@ export function Toast({ data, onView, onDismiss }:
     <div className="w-[352px] bg-ctp-mantle border border-ctp-surface1 rounded-xl shadow-2xl overflow-hidden animate-toast-in">
       <div className="px-3.5 py-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-[12.5px] font-semibold text-ctp-text">Memory-Bank geändert</span>
+          <span className="text-[14px] font-semibold text-ctp-text">Memory-Bank geändert</span>
           <span className="flex-1" />
           <span onClick={onDismiss} aria-label="Schließen"
-            className="text-[13px] leading-none text-ctp-overlay0 hover:text-ctp-text cursor-pointer p-0.5">✕</span>
+            className="text-[14px] leading-none text-ctp-overlay0 hover:text-ctp-text cursor-pointer p-0.5">✕</span>
         </div>
         <div className="flex items-center gap-1.5 mt-1 min-w-0">
-          <span className="font-mono text-xs text-ctp-text truncate">{data.filePath.split("/").pop()}</span>
-          <span className={`text-[9px] font-semibold tracking-wide rounded px-1 py-px shrink-0 ${t.text} ${t.bg}`}>{label}</span>
+          <span className="font-mono text-[13px] text-ctp-text truncate">{data.filePath.split("/").pop()}</span>
+          <span className={`text-[11px] font-semibold tracking-wide rounded px-1 py-px shrink-0 ${t.text} ${t.bg}`}>{label}</span>
           {data.changeKind === "add" && (
-            <span className="text-[9px] font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1 py-px shrink-0">NEU</span>
+            <span className="text-[11px] font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1 py-px shrink-0">NEU</span>
           )}
           {/* Sonst sähe eine Verschiebung aus wie eine gewöhnliche Änderung an
               einer Datei, die es unter diesem Namen noch nie gab. */}
           {data.changeKind === "rename" && (
-            <span className="text-[9px] font-bold tracking-wide text-ctp-blue bg-ctp-blue/20 rounded px-1 py-px shrink-0">VERSCHOBEN</span>
+            <span className="text-[11px] font-bold tracking-wide text-ctp-blue bg-ctp-blue/20 rounded px-1 py-px shrink-0">VERSCHOBEN</span>
           )}
         </div>
-        <div className="text-[11.5px] text-ctp-subtext0 truncate mt-0.5">{data.summary} · {data.authorName}</div>
+        <div className="text-[13px] text-ctp-subtext0 truncate mt-0.5">{data.summary} · {data.authorName}</div>
       </div>
       <div className="flex border-t border-ctp-surface0">
         <div onClick={onView}
-          className="flex-1 text-center py-2 text-xs font-semibold text-ctp-green cursor-pointer border-r border-ctp-surface0 hover:bg-ctp-surface0/60 transition-colors">Ansehen</div>
+          className="flex-1 text-center py-2 text-[13px] font-semibold text-ctp-green cursor-pointer border-r border-ctp-surface0 hover:bg-ctp-surface0/60 transition-colors">Ansehen</div>
         <div onClick={onDismiss}
-          className="flex-1 text-center py-2 text-xs text-ctp-subtext0 cursor-pointer hover:bg-ctp-surface0/60 hover:text-ctp-text transition-colors">Später</div>
+          className="flex-1 text-center py-2 text-[13px] text-ctp-subtext0 cursor-pointer hover:bg-ctp-surface0/60 hover:text-ctp-text transition-colors">Später</div>
       </div>
     </div>
   );

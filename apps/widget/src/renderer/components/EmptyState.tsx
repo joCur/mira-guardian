@@ -13,8 +13,8 @@ export function EmptyState({ paths, title, children }:
             {paths.map((d, i) => <path key={i} d={d} />)}
           </svg>
         </div>
-        <div className="text-[15px] font-semibold text-ctp-text mt-4">{title}</div>
-        <div className="text-[12.5px] text-ctp-subtext0 leading-relaxed mt-1.5">{children}</div>
+        <div className="text-[16px] font-semibold text-ctp-text mt-4">{title}</div>
+        <div className="text-[14px] text-ctp-subtext0 leading-relaxed mt-1.5">{children}</div>
       </div>
     </div>
   );

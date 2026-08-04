@@ -21,7 +21,7 @@ const BILDFLAECHE = `${FLAECHE} bg-white`;
 function Platzhalter({ text, ton }: { text: string; ton: "warten" | "leer" }) {
   return (
     <div className={`${FLAECHE} h-[140px] ${ton === "warten" ? "animate-pulse bg-ctp-surface0" : "bg-ctp-surface0/50 border border-ctp-surface0"}`}>
-      <span className="text-[11.5px] text-ctp-subtext0">{text}</span>
+      <span className="text-[13px] text-ctp-subtext0">{text}</span>
     </div>
   );
 }
@@ -34,8 +34,8 @@ function Tafel({ seite, stand, alt, onGross, einzeln }:
   return (
     <div className={`border-l-[3px] ${a.rand} pl-3 min-w-0`}>
       <div className="flex items-baseline gap-2 mb-1.5">
-        {!einzeln && <span className={`text-[10px] tracking-[0.08em] font-semibold ${a.text}`}>{a.titel}</span>}
-        {masse && <span className="text-[10.5px] text-ctp-subtext0 font-mono">{masse}</span>}
+        {!einzeln && <span className={`text-[12px] tracking-[0.08em] font-semibold ${a.text}`}>{a.titel}</span>}
+        {masse && <span className="text-[12px] text-ctp-subtext0 font-mono">{masse}</span>}
       </div>
       {stand.status === "laedt" && <Platzhalter text="lädt…" ton="warten" />}
       {stand.status === "fehlt" && (
@@ -54,7 +54,7 @@ function Tafel({ seite, stand, alt, onGross, einzeln }:
           </button>
           {/* Auch über die volle Spaltenbreite bleibt ein Diagramm mit vielen
               Kästchen klein — der Weg zur großen Ansicht muss dastehen. */}
-          <span className="block text-[10.5px] text-ctp-overlay0 mt-1">Klicken zum Vergrößern</span>
+          <span className="block text-[12px] text-ctp-overlay0 mt-1">Klicken zum Vergrößern</span>
         </>
       )}
     </div>

@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import type { Guardian } from "@guardian/shared";
 import type { ApiClient } from "../api/client.js";
 
-const inputCls = "bg-ctp-crust border border-ctp-surface1 focus:border-ctp-green/50 rounded-lg text-[13px] text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2.5 outline-none";
-const primaryBtnCls = "w-full rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-colors bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 disabled:bg-ctp-surface0/40 disabled:text-ctp-overlay0 disabled:border-ctp-surface0 disabled:cursor-not-allowed";
+const inputCls = "bg-ctp-crust border border-ctp-surface1 focus:border-ctp-green/50 rounded-lg text-[14px] text-ctp-text placeholder:text-ctp-overlay0 px-3 py-2.5 outline-none";
+const primaryBtnCls = "w-full rounded-lg px-4 py-2.5 text-[14px] font-semibold transition-colors bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 disabled:bg-ctp-surface0/40 disabled:text-ctp-overlay0 disabled:border-ctp-surface0 disabled:cursor-not-allowed";
 
 function LogoTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-[30px] h-[30px] rounded-[9px] bg-ctp-teal/20 flex items-center justify-center font-mono text-[11px] font-semibold text-ctp-teal shrink-0">MB</span>
+      <span className="w-[30px] h-[30px] rounded-[9px] bg-ctp-teal/20 flex items-center justify-center font-mono text-[12px] font-semibold text-ctp-teal shrink-0">MB</span>
       <span className="text-base font-bold text-ctp-text">{title}</span>
     </div>
   );
@@ -51,7 +51,7 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
   // vorbelegten localhost und der Gründungs-Hüter kommt nicht weiter.
   const urlField = (
     <>
-      <label className="text-[10px] tracking-[0.08em] font-semibold uppercase text-ctp-subtext0">Server-Adresse</label>
+      <label className="text-[12px] tracking-[0.08em] font-semibold uppercase text-ctp-subtext0">Server-Adresse</label>
       <input value={url} onChange={e => setUrl(e.target.value)} placeholder="http://localhost:4000"
         aria-label="Server-Adresse" className={inputCls} />
     </>
@@ -85,7 +85,7 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
           <>
             <div className="px-[22px] pt-5 pb-3.5">
               <LogoTitle title="Gerät verknüpfen" />
-              <p className="text-xs text-ctp-subtext0 mt-2.5 leading-relaxed">
+              <p className="text-[13px] text-ctp-subtext0 mt-2.5 leading-relaxed">
                 Ein <strong className="text-ctp-subtext1 font-semibold">einmaliger Zugangscode</strong>{" "}
                 verknüpft dieses Gerät mit deinem Hüter-Profil — danach ist keine Anmeldung mehr nötig.
                 Neu dabei? Dann hat dich ein Hüter angelegt. Neuer Rechner oder Anmeldung verloren?
@@ -96,12 +96,12 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
             <div className="px-[22px] pb-[18px] pt-1 flex flex-col gap-2">
               {urlField}
               <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="MB-XXXX"
-                className={`${inputCls} text-[17px] tracking-[0.2em] text-center font-mono p-3`} />
-              {error && <div className="text-xs text-ctp-red text-center">{error}</div>}
+                className={`${inputCls} text-[18px] tracking-[0.2em] text-center font-mono p-3`} />
+              {error && <div className="text-[13px] text-ctp-red text-center">{error}</div>}
               <button onClick={redeem} disabled={code.trim().length < 4} className={primaryBtnCls}>Verknüpfen</button>
             </div>
             <div className="px-[22px] py-3.5 bg-ctp-crust/50 border-t border-ctp-surface0">
-              <p className="text-[11.5px] text-ctp-subtext0">Frische Installation, noch keine Hüter?{" "}
+              <p className="text-[13px] text-ctp-subtext0">Frische Installation, noch keine Hüter?{" "}
                 <span onClick={() => { setMode("init"); setError(""); }} className="text-ctp-blue cursor-pointer hover:underline">Instanz initialisieren →</span></p>
             </div>
           </>
@@ -109,13 +109,13 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
           <>
             <div className="px-[22px] pt-5 pb-3.5">
               <LogoTitle title="Instanz initialisieren" />
-              <p className="text-xs text-ctp-subtext0 mt-2.5 leading-relaxed">
+              <p className="text-[13px] text-ctp-subtext0 mt-2.5 leading-relaxed">
                 Beim allerersten Start gibt der Server einmalig einen{" "}
                 <strong className="text-ctp-subtext1 font-semibold">Erst-Setup-Code</strong> in der Konsole aus.
                 Wer ihn eingibt, wird <strong className="text-ctp-subtext1 font-semibold">Gründungs-Hüter</strong>{" "}
                 und lädt danach alle weiteren Hüter über Zugangscodes ein.
               </p>
-              <div className="mt-3 bg-ctp-crust border border-ctp-surface0 rounded-lg px-3 py-2.5 font-mono text-[11px] leading-[1.7]">
+              <div className="mt-3 bg-ctp-crust border border-ctp-surface0 rounded-lg px-3 py-2.5 font-mono text-[12px] leading-[1.7]">
                 <div className="text-ctp-overlay0">$ docker compose up guardian-server</div>
                 <div className="text-ctp-subtext0">▸ Keine Hüter gefunden — Erst-Setup aktiv</div>
                 <div className="text-ctp-subtext1">▸ Setup-Code: <span className="text-ctp-green font-semibold">MB-XXXX-XXXX</span> <span className="text-ctp-overlay0">(einmalig gültig)</span></div>
@@ -127,9 +127,9 @@ export function SetupDialog({ api, serverUrl, onServerUrl, onLinked }:
                 className={`${inputCls} text-center font-mono tracking-[0.1em]`} />
               <input value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name" className={inputCls} />
               <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Deine E-Mail" className={inputCls} />
-              {error && <div className="text-xs text-ctp-red text-center">{error}</div>}
+              {error && <div className="text-[13px] text-ctp-red text-center">{error}</div>}
               <button onClick={init} disabled={!initCode.trim() || !name.trim() || !email.includes("@")} className={primaryBtnCls}>Als Gründungs-Hüter starten</button>
-              <p className="text-[11.5px] text-ctp-subtext0 text-center">Du hast schon einen Zugangscode?{" "}
+              <p className="text-[13px] text-ctp-subtext0 text-center">Du hast schon einen Zugangscode?{" "}
                 <span onClick={() => { setMode("code"); setError(""); }} className="text-ctp-blue cursor-pointer hover:underline">← Zurück</span></p>
             </div>
           </>

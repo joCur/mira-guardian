@@ -24,7 +24,7 @@ function Auswahl({ label, prefix, value, options, onChange, alleLabel }: {
         const v = e.target.value;
         onChange(v.startsWith(`${prefix}:`) ? v.slice(prefix.length + 1) : null);
       }}
-      className={`${FELD} text-[11px] px-1.5 py-1 cursor-pointer min-w-0 flex-1`}>
+      className={`${FELD} text-[12px] px-1.5 py-1 cursor-pointer min-w-0 flex-1`}>
       <option value={ALLE}>{alleLabel}</option>
       {/* Was gerade nichts trifft, bleibt sichtbar, aber unwählbar — außer es
           ist die eigene Auswahl, sonst käme man aus ihr nicht mehr heraus. */}
@@ -40,7 +40,7 @@ function Auswahl({ label, prefix, value, options, onChange, alleLabel }: {
 function Zuruecksetzen({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className="text-[11px] text-ctp-subtext0 hover:text-ctp-text px-1.5 py-1 whitespace-nowrap transition-colors">
+      className="text-[12px] text-ctp-subtext0 hover:text-ctp-text px-1.5 py-1 whitespace-nowrap transition-colors">
       Zurücksetzen
     </button>
   );
@@ -67,7 +67,7 @@ export function FilterBar({ value, onChange, levels, types, stacked, placeholder
     <div className={stacked ? "flex flex-col gap-1.5" : "flex items-center gap-2"}>
       <input type="search" aria-label="Suchen" placeholder={placeholder} value={value.text}
         onChange={e => onChange({ ...value, text: e.target.value })}
-        className={`${FELD} text-[12px] placeholder:text-ctp-overlay0 px-2.5 py-1.5 ${stacked ? "w-full" : "flex-1"}`} />
+        className={`${FELD} text-[13px] placeholder:text-ctp-overlay0 px-2.5 py-1.5 ${stacked ? "w-full" : "flex-1"}`} />
       {/* In der schmalen Spalte bekommen die Auswahlfelder die volle Breite —
           das Zurücksetzen rutscht darunter, statt sie zusammenzuquetschen. */}
       <div className="flex gap-2 items-center">
@@ -89,7 +89,7 @@ export function LevelPill({ filePath, className = "" }: { filePath: string; clas
   const lv = memoryLevel(filePath);
   return (
     <span title={lv.id ? `Ebene: ${lv.id}` : "Ebene: Repo-Wurzel"}
-      className={`text-[8.5px] px-1 py-px font-semibold tracking-wide rounded shrink-0 max-w-[120px] truncate
+      className={`text-[11px] px-1 py-px font-semibold tracking-wide rounded shrink-0 max-w-[120px] truncate
         text-ctp-overlay1 bg-ctp-surface0 border border-ctp-surface1 ${className}`}>
       {lv.label}
     </span>

@@ -58,7 +58,7 @@ export function UpdateBadge({ status, currentVersion, onInstall, onOpenNotes }: 
     <div ref={box} className="relative" style={{ WebkitAppRegion: "no-drag" } as any}>
       <button onClick={() => setOpen(o => !o)} aria-expanded={open}
         title={ready ? `Version ${status.version} ist bereit` : labelFor(status)}
-        className={`flex items-center gap-1.5 h-[26px] px-2.5 rounded-[7px] border text-[11.5px] font-semibold transition-colors ${tone}`}>
+        className={`flex items-center gap-1.5 h-[26px] px-2.5 rounded-[7px] border text-[13px] font-semibold transition-colors ${tone}`}>
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M6 1.5v6m0 0L3.5 5m2.5 2.5L8.5 5M2 10h8" stroke="currentColor" strokeWidth="1.4"
             strokeLinecap="round" strokeLinejoin="round" />
@@ -68,10 +68,10 @@ export function UpdateBadge({ status, currentVersion, onInstall, onOpenNotes }: 
 
       {open && (
         <div className="absolute right-0 top-[32px] z-30 w-[296px] bg-ctp-mantle border border-ctp-surface1 rounded-[10px] shadow-lg shadow-ctp-crust/50 px-4 py-3.5">
-          <div className="text-[13px] font-semibold text-ctp-text">
+          <div className="text-[14px] font-semibold text-ctp-text">
             {ready ? `Version ${status.version} ist bereit` : failed ? "Update nicht eingespielt" : `Version ${status.version} wird geladen`}
           </div>
-          <div className="font-mono text-[11px] text-ctp-subtext0 mt-1">
+          <div className="font-mono text-[12px] text-ctp-subtext0 mt-1">
             {currentVersion || "unbekannt"} → {status.version ?? "unbekannt"}
           </div>
 
@@ -82,28 +82,28 @@ export function UpdateBadge({ status, currentVersion, onInstall, onOpenNotes }: 
           )}
 
           {ready && (
-            <div className="text-[11.5px] text-ctp-subtext1 mt-2 leading-normal">
+            <div className="text-[13px] text-ctp-subtext1 mt-2 leading-normal">
               Die neue Version ist heruntergeladen. Sie wird beim nächsten Start
               aktiv — die App startet dafür einmal neu.
             </div>
           )}
 
           {failed && (
-            <div className="text-[11.5px] text-ctp-subtext1 mt-2 leading-normal">
+            <div className="text-[13px] text-ctp-subtext1 mt-2 leading-normal">
               Das Update ließ sich nicht einspielen. Hol die neue Version aus dem
               Release und ersetze die App von Hand.
-              <div className="font-mono text-[10.5px] text-ctp-overlay0 mt-1.5 break-words">{status.message}</div>
+              <div className="font-mono text-[12px] text-ctp-overlay0 mt-1.5 break-words">{status.message}</div>
             </div>
           )}
 
           <div className="flex items-center justify-between gap-2 mt-3">
             {status.notesUrl
               ? <button onClick={() => onOpenNotes(status.notesUrl!)}
-                  className="text-[11.5px] text-ctp-blue hover:underline">Was ist neu ↗</button>
+                  className="text-[13px] text-ctp-blue hover:underline">Was ist neu ↗</button>
               : <span />}
             {ready && (
               <button onClick={onInstall}
-                className="rounded-lg px-3.5 py-[7px] text-[12px] font-semibold bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 transition-colors whitespace-nowrap">
+                className="rounded-lg px-3.5 py-[7px] text-[13px] font-semibold bg-ctp-green/25 text-ctp-green border border-ctp-green/40 hover:bg-ctp-green/30 transition-colors whitespace-nowrap">
                 Neu starten &amp; installieren
               </button>
             )}
