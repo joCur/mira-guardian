@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Change, ChangeKind } from "@guardian/shared";
+import { istBilddatei, type Change, type ChangeKind } from "@guardian/shared";
 import type { Config } from "../config.js";
 import type { Store } from "../db/store.js";
 import type { ChangeService } from "../domain/changeService.js";
@@ -49,6 +49,9 @@ export class AdoPoller {
   async ergaenzeFehlendeVergleichsbasen(): Promise<number> {
     let ergaenzt = 0;
     for (const c of this.store.listChangesWithoutBaseline()) {
+      // Bilder tragen ihren Inhalt nicht in der Datenbank — für sie wird beide
+      // Seiten erst beim Anzeigen geholt.
+      if (istBilddatei(c.filePath)) continue;
       try {
         const basis = await this.ado.getItemContentBefore(c.previousPath ?? c.filePath, c.commitId);
         if (basis === null) continue; // ADO kennt keinen Vorgängerstand
@@ -121,14 +124,20 @@ export class AdoPoller {
         // Liste, einmal unter dem alten und einmal unter dem neuen Pfad.
         const existing = (fc.previousPath ? this.store.getChangeByPath(repo, branch, fc.previousPath) : undefined)
           ?? this.store.getChangeByPath(repo, branch, fc.path);
-        const newMd = kind === "delete" ? null : await this.ado.getItemContent(fc.path, commit.commitId);
+        // Bilder werden nicht als Text eingelesen: über includeContent kommt
+        // ein Binärinhalt nur beschädigt an. Beide Seiten holt stattdessen die
+        // Bildroute beim Anzeigen direkt aus ADO.
+        const istBild = istBilddatei(fc.path);
+        const newMd = kind === "delete" || istBild
+          ? null
+          : await this.ado.getItemContent(fc.path, commit.commitId);
         // Beim ersten Sichten holen wir den Stand vor dem Commit als
         // Vergleichsbasis. Bei einer Folgeänderung bleibt die ursprüngliche
         // Basis stehen: die Hüter sollen alles sehen, was seit ihrem letzten
         // Blick passiert ist, nicht nur den jüngsten Commit.
         const oldMd: string | null = existing
           ? existing.oldMd
-          : kind === "add"
+          : kind === "add" || istBild
             ? null // neu angelegt — es gibt naturgemäß keinen Vorgängerstand
             : await this.ado.getItemContentBefore(fc.previousPath ?? fc.path, commit.commitId);
         const change: Change = {
@@ -138,6 +147,10 @@ export class AdoPoller {
           authorName: commit.author.name, authorEmail: commit.author.email, committedAt: commit.author.date,
           summary: (commit.comment || "").split("\n")[0].trim(),
           oldMd, newMd, previousPath: fc.previousPath ?? null,
+          // Bezugspunkt für die Vorher-Seite. Wie oldMd bleibt er beim ersten
+          // erfassten Commit stehen, damit eine Folgeänderung den Vergleich
+          // nicht auf den jüngsten Zwischenstand verkürzt.
+          baselineCommitId: existing?.baselineCommitId ?? commit.commitId,
           cycleId: cycle.id, firstSeenAt: existing?.firstSeenAt ?? this.now(),
         };
         this.store.upsertChange(change);

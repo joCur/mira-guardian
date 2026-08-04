@@ -107,4 +107,58 @@ describe("AdoClient", () => {
     await new AdoClient(cfg, recording).getItemContent("docs/decisions/adr-013.md", "def456");
     expect(urls[0]).not.toContain("versionOptions");
   });
+
+  describe("getItemBytes", () => {
+    function binaerFetch(status = 200, bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47])) {
+      const urls: string[] = []; const accepts: string[] = [];
+      const fn = (async (url: string, init?: RequestInit) => {
+        urls.push(String(url));
+        accepts.push((init?.headers as Record<string, string>)?.Accept ?? "");
+        return {
+          ok: status < 400, status,
+          headers: new Headers({ "content-type": "image/png; api-version=7.1" }),
+          arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+          json: async () => ({}),
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+      return { fn, urls, accepts };
+    }
+
+    // Über includeContent kommt ein PNG nur beschädigt an (JSON-String statt
+    // Bytes) — genau daran scheiterte die Bildanzeige vorher.
+    it("lädt die Datei als Rohbytes statt als JSON-Inhalt", async () => {
+      const { fn, urls, accepts } = binaerFetch();
+      const bild = await new AdoClient(cfg, fn).getItemBytes("docs/decisions/flow.png", "def456");
+      expect(bild?.bytes.subarray(0, 4).toString("hex")).toBe("89504e47");
+      expect(bild?.contentType).toBe("image/png");
+      expect(urls[0]).toContain("$format=octetStream");
+      expect(urls[0]).toContain("download=true");
+      expect(urls[0]).not.toContain("includeContent");
+      expect(accepts[0]).toBe("application/octet-stream");
+    });
+
+    it("fragt die alte Fassung über versionOptions=previousChange", async () => {
+      const { fn, urls } = binaerFetch();
+      await new AdoClient(cfg, fn).getItemBytes("docs/decisions/flow.png", "def456", true);
+      expect(urls[0]).toContain("versionDescriptor.versionOptions=previousChange");
+    });
+
+    it("meldet eine unbekannte Datei als 'nicht vorhanden'", async () => {
+      const { fn } = binaerFetch(404);
+      expect(await new AdoClient(cfg, fn).getItemBytes("x.png", "def456")).toBeNull();
+    });
+
+    // Fragt man nach dem Stand vor dem Commit, in dem eine Datei erst angelegt
+    // wurde, antwortet ADO mit 400. Das heißt "kein Vorgängerstand" und darf den
+    // Abruf nicht scheitern lassen.
+    it("wertet 400 auf der Vorher-Seite als fehlenden Vorgängerstand", async () => {
+      const { fn } = binaerFetch(400);
+      expect(await new AdoClient(cfg, fn).getItemBytes("neu.png", "def456", true)).toBeNull();
+    });
+
+    it("lässt 400 auf der Nachher-Seite als Fehler durch", async () => {
+      const { fn } = binaerFetch(400);
+      await expect(new AdoClient(cfg, fn).getItemBytes("neu.png", "def456")).rejects.toThrow("400");
+    });
+  });
 });

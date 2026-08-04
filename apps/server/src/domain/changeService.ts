@@ -1,4 +1,4 @@
-import type { Change, Vote, VoteStatus } from "@guardian/shared";
+import { istBilddatei, type Change, type Vote, type VoteStatus } from "@guardian/shared";
 import type { Store } from "../db/store.js";
 
 const RANK: Record<VoteStatus, number> = { abgelehnt: 3, klaerung: 2, offen: 1, akzeptiert: 0 };
@@ -103,6 +103,24 @@ export class ChangeService {
     return added;
   }
 
+  /**
+   * Altlast aufräumen: Bilder, die vor der Bildanzeige erfasst wurden, tragen
+   * ihren Binärinhalt als beschädigte Zeichenkette in der Datenbank. Angezeigt
+   * wird der nicht mehr — die Volltextsuche liest ihn aber weiter mit und
+   * liefert dann Treffer mitten im Bildrauschen. Liefert die Zahl der
+   * bereinigten Einträge.
+   */
+  verwerfeBildtexte(): number {
+    let bereinigt = 0;
+    for (const c of this.store.listAllChanges()) {
+      if (!istBilddatei(c.filePath)) continue;
+      if (c.oldMd === null && c.newMd === null) continue;
+      this.store.clearContent(c.id);
+      bereinigt++;
+    }
+    return bereinigt;
+  }
+
   // Altlast aufräumen: Bis die Umbenennungs-Flags von ADO ausgewertet wurden,
   // landete die Quellseite jeder Verschiebung als Änderung ohne alten und ohne
   // neuen Inhalt in der Liste. Solche Einträge zeigen nichts an und lassen sich
@@ -112,6 +130,9 @@ export class ChangeService {
     let removed = 0;
     for (const c of this.store.listAllChanges()) {
       if (c.changeKind === "delete") continue;
+      // Bilder sind hier immer "leer": ihr Inhalt steht nicht in der Datenbank,
+      // sondern wird beim Anzeigen geholt. Sie zeigen trotzdem etwas an.
+      if (istBilddatei(c.filePath)) continue;
       if ((c.newMd ?? "") !== "" || (c.oldMd ?? "") !== "") continue;
       if (this.votes(c.id).some(v => v.status !== "offen")) continue;
       this.store.deleteChange(c.id);

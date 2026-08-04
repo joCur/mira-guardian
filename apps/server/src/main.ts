@@ -7,6 +7,7 @@ import { RealtimeHub, type Sink } from "./realtime/hub.js";
 import { AdoClient } from "./ado/adoClient.js";
 import { AdoPoller } from "./ado/adoPoller.js";
 import { buildApp } from "./api/httpApi.js";
+import { BildDienst } from "./api/bilder.js";
 import { generateCode } from "./domain/codes.js";
 
 const now = () => new Date().toISOString();
@@ -35,12 +36,15 @@ async function bootstrap() {
   if (purged > 0) console.log(`▸ ${purged} Änderungen ohne Inhalt entfernt`);
   const repaired = changeService.repairMissingVotes(now());
   if (repaired > 0) console.log(`▸ ${repaired} fehlende Bewertungen nachgezogen`);
+  const bereinigt = changeService.verwerfeBildtexte();
+  if (bereinigt > 0) console.log(`▸ ${bereinigt} Bilder aus der Zeit vor der Bildanzeige bereinigt`);
   const hub = new RealtimeHub();
   const ado = new AdoClient(config);
   const poller = new AdoPoller(config, store, changeService, ado, now,
     (changeId, isNew) => hub.broadcast({ type: isNew ? "change:new" : "change:updated", changeId }));
 
-  const app = buildApp({ store, changeService, authService, hub, config, now });
+  const app = buildApp({ store, changeService, authService, hub, config, now,
+    bildDienst: new BildDienst(ado) });
   await app.register(websocket);
   app.get("/ws", { websocket: true }, (socket, req) => {
     const token = new URL(req.url ?? "", "http://x").searchParams.get("token") ?? "";

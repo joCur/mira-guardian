@@ -117,7 +117,7 @@ describe("AdoPoller", () => {
         id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
         commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
         summary: "Übersetzt", oldMd: null, newMd: "English text", previousPath: null,
-        cycleId: "cy1", firstSeenAt: "t", ...over,
+        baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t", ...over,
       };
     }
 
@@ -388,5 +388,47 @@ describe("AdoPoller", () => {
     const changes = s.listChangesByCycle(s.getOpenCycle()!.id);
     expect(changes.map(c => c.filePath)).toEqual(["memory-bank/a.md"]);
     expect(s.getLastSeenCommit("R", "main")).toBe("young");
+  });
+
+  // Bilder gehören zur Memory Bank wie Dokumente, ihr Inhalt aber nicht in die
+  // Datenbank: über includeContent kommen Binärdaten beschädigt an, und als
+  // Text gerendert stand im Widget bisher Bildmüll statt eines Vergleichs.
+  describe("Bilddateien", () => {
+    beforeEach(() => {
+      ado.commits = [{ commitId: "c1", comment: "Diagramm überarbeitet", author: { name: "A", email: "a@x.de", date: "t" } }];
+      ado.changesByCommit["c1"] = [{ path: "docs/decisions/diagrams/flow.png", changeType: "edit" }];
+      ado.contentByCommit["c1"] = { "docs/decisions/diagrams/flow.png": "�PNG-Müll" };
+      ado.contentBeforeCommit["c1"] = { "docs/decisions/diagrams/flow.png": "�alter PNG-Müll" };
+    });
+
+    it("erfasst ein geändertes Bild, ohne seinen Inhalt als Text einzulesen", async () => {
+      await poller.pollOnce();
+      const [bild] = s.listChangesByCycle("cy1");
+      expect(bild.filePath).toBe("docs/decisions/diagrams/flow.png");
+      expect(bild.newMd).toBeNull();
+      expect(bild.oldMd).toBeNull();
+      expect(bild.baselineCommitId).toBe("c1");
+    });
+
+    it("hält den Bezugscommit fest, wenn später weitere Commits folgen", async () => {
+      await poller.pollOnce();
+      ado.commits = [
+        { commitId: "c2", comment: "nochmal", author: { name: "A", email: "a@x.de", date: "t" } },
+        ...ado.commits,
+      ];
+      ado.changesByCommit["c2"] = [{ path: "docs/decisions/diagrams/flow.png", changeType: "edit" }];
+      await poller.pollOnce();
+
+      const [bild] = s.listChangesByCycle("cy1");
+      expect(bild.commitId).toBe("c2");
+      expect(bild.baselineCommitId).toBe("c1");
+    });
+
+    it("versucht nicht, für Bilder eine Textbasis nachzuziehen", async () => {
+      await poller.pollOnce();
+      const spion = vi.spyOn(ado, "getItemContentBefore");
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(0);
+      expect(spion).not.toHaveBeenCalled();
+    });
   });
 });

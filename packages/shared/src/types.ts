@@ -41,6 +41,13 @@ export interface Change {
   newMd: string | null;
   /** Pfad vor dem Commit, wenn die Datei umbenannt oder verschoben wurde. */
   previousPath: string | null;
+  /**
+   * Der Commit, gegen dessen Vorgängerstand verglichen wird — der erste, mit
+   * dem diese Änderung erfasst wurde. Bei Dokumenten steckt die Basis schon in
+   * oldMd; bei Bildern wird sie erst beim Anzeigen geholt und braucht deshalb
+   * den festgehaltenen Bezugspunkt. Null bei Einträgen aus der Zeit davor.
+   */
+  baselineCommitId: string | null;
   cycleId: string;
   firstSeenAt: string;
 }

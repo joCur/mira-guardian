@@ -24,6 +24,9 @@ export class Store {
     if (!columns("change_item").includes("previous_path")) {
       this.db.exec("ALTER TABLE change_item ADD COLUMN previous_path TEXT");
     }
+    if (!columns("change_item").includes("baseline_commit_id")) {
+      this.db.exec("ALTER TABLE change_item ADD COLUMN baseline_commit_id TEXT");
+    }
     if (!columns("invite_code").includes("guardian_id")) {
       this.db.exec("ALTER TABLE invite_code ADD COLUMN guardian_id TEXT");
     }
@@ -136,6 +139,7 @@ export class Store {
     changeKind: r.change_kind as ChangeKind, commitId: r.commit_id, commitShort: r.commit_short,
     authorName: r.author_name, authorEmail: r.author_email, committedAt: r.committed_at, summary: r.summary,
     oldMd: r.old_md, newMd: r.new_md, previousPath: r.previous_path,
+    baselineCommitId: r.baseline_commit_id ?? null,
     cycleId: r.cycle_id, firstSeenAt: r.first_seen_at });
   upsertChange(c: Change) {
     // Zwei Wege, weil ein Eintrag über zwei Schlüssel identifiziert wird: über
@@ -148,13 +152,14 @@ export class Store {
         repo=@repo, branch=@branch, file_path=@filePath, change_kind=@changeKind,
         commit_id=@commitId, commit_short=@commitShort, author_name=@authorName,
         author_email=@authorEmail, committed_at=@committedAt, summary=@summary,
-        old_md=@oldMd, new_md=@newMd, previous_path=@previousPath, cycle_id=@cycleId
+        old_md=@oldMd, new_md=@newMd, previous_path=@previousPath,
+        baseline_commit_id=@baselineCommitId, cycle_id=@cycleId
         WHERE id=@id`).run(c);
       return;
     }
     this.db.prepare(`INSERT INTO change_item
-      (id,repo,branch,file_path,change_kind,commit_id,commit_short,author_name,author_email,committed_at,summary,old_md,new_md,previous_path,cycle_id,first_seen_at)
-      VALUES (@id,@repo,@branch,@filePath,@changeKind,@commitId,@commitShort,@authorName,@authorEmail,@committedAt,@summary,@oldMd,@newMd,@previousPath,@cycleId,@firstSeenAt)
+      (id,repo,branch,file_path,change_kind,commit_id,commit_short,author_name,author_email,committed_at,summary,old_md,new_md,previous_path,baseline_commit_id,cycle_id,first_seen_at)
+      VALUES (@id,@repo,@branch,@filePath,@changeKind,@commitId,@commitShort,@authorName,@authorEmail,@committedAt,@summary,@oldMd,@newMd,@previousPath,@baselineCommitId,@cycleId,@firstSeenAt)
       ON CONFLICT (cycle_id, file_path) DO UPDATE SET
         change_kind=excluded.change_kind, commit_id=excluded.commit_id, commit_short=excluded.commit_short,
         author_name=excluded.author_name, author_email=excluded.author_email, committed_at=excluded.committed_at,
@@ -191,6 +196,9 @@ export class Store {
   }
   setBaseline(id: string, oldMd: string) {
     this.db.prepare("UPDATE change_item SET old_md = ? WHERE id = ?").run(oldMd, id);
+  }
+  clearContent(id: string) {
+    this.db.prepare("UPDATE change_item SET old_md = NULL, new_md = NULL WHERE id = ?").run(id);
   }
   // Bewertungsverlauf eines Hüters: nur abgegebene Bewertungen, neueste zuerst.
   listVotesByGuardian(guardianId: string): Array<Vote & { change: Change }> {

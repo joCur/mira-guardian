@@ -1,21 +1,46 @@
 import React from "react";
-import type { ChangeWithVotes } from "@guardian/shared";
+import { istBilddatei, type ChangeWithVotes } from "@guardian/shared";
 import { diffBlocks, type DiffBlock } from "../diff/diff.js";
 import { splitFrontmatter, parseFm, diffFmFields } from "../diff/frontmatter.js";
 import { FrontmatterCard } from "./FrontmatterCard.js";
 import { MarkdownBlock } from "./MarkdownBlock.js";
 import { RenameNotice } from "./RenameNotice.js";
 import { BaselineNotice } from "./BaselineNotice.js";
+import { BildVergleich } from "./BildVergleich.js";
+import { BildseiteProvider } from "../bild/kontext.js";
 
-function wrap(block: DiffBlock, i: number) {
-  const inner = <MarkdownBlock md={block.md} />;
-  if (block.kind === "add") return <div key={i} className="bg-ctp-green/15 border-l-[3px] border-ctp-green rounded-r-lg px-3 py-0.5 my-2">{inner}</div>;
-  if (block.kind === "del") return <div key={i} className="bg-ctp-red/15 border-l-[3px] border-ctp-red rounded-r-lg px-3 py-0.5 my-2 line-through opacity-80">{inner}</div>;
-  if (block.kind === "changed") return <div key={i} className="border-l-[3px] border-ctp-surface1 px-3 my-2">{inner}</div>;
-  return <div key={i} className="my-2">{inner}</div>;
+function wrap(changeId: string) {
+  return function block(block: DiffBlock, i: number) {
+    // Ein Bild im gelöschten Block gehört zur alten Fassung, überall sonst zur
+    // neuen — sonst zeigte der Vergleich zweimal dasselbe Bild.
+    const inner = (
+      <BildseiteProvider changeId={changeId} seite={block.kind === "del" ? "vorher" : "nachher"}>
+        <MarkdownBlock md={block.md} />
+      </BildseiteProvider>
+    );
+    if (block.kind === "add") return <div key={i} className="bg-ctp-green/15 border-l-[3px] border-ctp-green rounded-r-lg px-3 py-0.5 my-2">{inner}</div>;
+    if (block.kind === "del") return <div key={i} className="bg-ctp-red/15 border-l-[3px] border-ctp-red rounded-r-lg px-3 py-0.5 my-2 line-through opacity-80">{inner}</div>;
+    if (block.kind === "changed") return <div key={i} className="border-l-[3px] border-ctp-surface1 px-3 my-2">{inner}</div>;
+    return <div key={i} className="my-2">{inner}</div>;
+  };
 }
 
 export function DiffView({ change }: { change: ChangeWithVotes }) {
+  // Bilddateien haben keinen Text, den man zeilenweise vergleichen könnte.
+  if (istBilddatei(change.filePath)) {
+    return (
+      <div>
+        {change.previousPath && (
+          <RenameNotice previousPath={change.previousPath} filePath={change.filePath} changeKind={change.changeKind} />
+        )}
+        <BildVergleich change={change} />
+      </div>
+    );
+  }
+  return <DokumentDiff change={change} />;
+}
+
+function DokumentDiff({ change }: { change: ChangeWithVotes }) {
   // Beim reinen Verschieben ist der Inhalt nachweislich derselbe (gleiche
   // Blob-Id in ADO). Ihn als "alles neu" zu zeigen wäre falsch — er wird
   // unmarkiert dargestellt, damit man nachlesen kann, worum es geht.
@@ -44,7 +69,7 @@ export function DiffView({ change }: { change: ChangeWithVotes }) {
       {basisFehlt && <BaselineNotice changeKind={change.changeKind} />}
       <FrontmatterCard fields={fields} />
       {fmBroken && <MarkdownBlock md={"```yaml\n" + newSplit.fm + "\n```"} />}
-      {blocks.map(wrap)}
+      {blocks.map(wrap(change.id))}
     </div>
   );
 }

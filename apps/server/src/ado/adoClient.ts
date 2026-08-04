@@ -12,6 +12,8 @@ export interface AdoFileChange {
   renameSource?: boolean;
 }
 
+export interface AdoBytes { bytes: Buffer; contentType: string }
+
 interface AdoChangeEntry {
   item: { path: string; isFolder?: boolean; gitObjectType?: string; objectId?: string; originalObjectId?: string };
   sourceServerItem?: string;
@@ -21,6 +23,14 @@ interface AdoChangeEntry {
 const API = "api-version=7.1";
 
 const strip = (p: string) => p.replace(/^\//, "");
+
+// "Es gibt diesen Stand nicht" statt eines Fehlers: Kennt ADO den Pfad nicht,
+// kommt 404. Fragt man nach dem Stand vor einem Commit, in dem die Datei erst
+// angelegt wurde, antwortet ADO dagegen mit 400 — auch das heißt nur, dass es
+// keinen Vorgängerstand gibt, und darf den Abruf nicht scheitern lassen.
+function fehlenderStand(status: number, vorher: boolean): boolean {
+  return status === 404 || (vorher && status === 400);
+}
 
 // Ordner tragen kein isFolder, wenn ADO sie als Rename-Quelle meldet — dann
 // verrät nur gitObjectType, dass es ein Baum und keine Datei ist.
@@ -83,10 +93,32 @@ export class AdoClient {
   }
 
   /**
+   * Eine Datei als Rohbytes — für Bilder. Über `includeContent` kommt der
+   * Inhalt als JSON-String zurück; Binärdaten überleben diese Umwandlung nicht
+   * und kommen als beschädigte Zeichenkette an. `octetStream` liefert die
+   * Datei unverändert, samt Content-Type aus ADO.
+   */
+  async getItemBytes(path: string, commitId: string, vorher = false): Promise<AdoBytes | null> {
+    const url = `${this.base}/items?path=/${encodeURIComponent(path)}` +
+      `&versionDescriptor.version=${commitId}&versionDescriptor.versionType=commit` +
+      (vorher ? `&versionDescriptor.versionOptions=previousChange` : "") +
+      `&download=true&$format=octetStream&${API}`;
+    const res = await this.fetchFn(url, {
+      headers: { ...this.headers(), Accept: "application/octet-stream" },
+    });
+    if (fehlenderStand(res.status, vorher)) return null;
+    if (!res.ok) throw new Error(`ADO item ${res.status}`);
+    return {
+      bytes: Buffer.from(await res.arrayBuffer()),
+      contentType: (res.headers.get("content-type") ?? "application/octet-stream").split(";")[0].trim(),
+    };
+  }
+
+  /**
    * Der Stand der Datei so, wie er vor diesem Commit war — die Vergleichsbasis
    * für den Diff. `previousChange` liefert den Inhalt aus der vorhergehenden
-   * Änderung an genau dieser Datei; existierte sie davor nicht, antwortet ADO
-   * mit 404 und wir haben keine Basis (null).
+   * Änderung an genau dieser Datei; existierte sie davor nicht, haben wir
+   * keine Basis (null).
    */
   async getItemContentBefore(path: string, commitId: string): Promise<string | null> {
     return this.itemContent(path, commitId, "previousChange");
@@ -98,7 +130,7 @@ export class AdoClient {
       (versionOptions ? `&versionDescriptor.versionOptions=${versionOptions}` : "") +
       `&includeContent=true&${API}`;
     const res = await this.fetchFn(url, { headers: this.headers() });
-    if (res.status === 404) return null;
+    if (fehlenderStand(res.status, versionOptions === "previousChange")) return null;
     if (!res.ok) throw new Error(`ADO item ${res.status}`);
     const body = await res.json() as { content?: string };
     return body.content ?? null;

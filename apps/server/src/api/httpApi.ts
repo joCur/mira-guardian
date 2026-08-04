@@ -6,11 +6,14 @@ import { AuthService, AuthError } from "../domain/authService.js";
 import type { RealtimeHub } from "../realtime/hub.js";
 import { type Config, deepLink } from "../config.js";
 import { makeAuthHook } from "./auth.js";
+import { istBildseite, type BildDienst } from "./bilder.js";
 import { createLimiter, type Limiter } from "./rateLimit.js";
 
 export interface ApiDeps {
   store: Store; changeService: ChangeService; authService: AuthService;
   hub: RealtimeHub; config: Config; now: () => string;
+  /** Fehlt in Tests, die ohne ADO auskommen — dann gibt es keine Bilder. */
+  bildDienst?: BildDienst;
   /** Nur für Tests: ein Limiter mit kontrollierbarer Uhr und Grenze. */
   limiter?: Limiter;
 }
@@ -19,7 +22,7 @@ const COMMENT_REQUIRED: VoteStatus[] = ["klaerung", "abgelehnt"];
 const TOO_MANY = "Zu viele Versuche. Warte 15 Minuten und probiere es dann erneut.";
 
 export function buildApp(deps: ApiDeps): FastifyInstance {
-  const { store, changeService, authService, hub, config, now } = deps;
+  const { store, changeService, authService, hub, config, now, bildDienst } = deps;
   const app = Fastify({ logger: false });
   const authHook = makeAuthHook(authService);
   const limiter = deps.limiter ?? createLimiter();
@@ -116,6 +119,32 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
         comment: COMMENT_REQUIRED.includes(status) ? trimmed : null, updatedAt: now() });
       hub.broadcast({ type: "vote:updated", changeId: id });
       return withVotes(id)!;
+    });
+
+    // Ein Bild zur Änderung: die geänderte Bilddatei selbst, oder — mit
+    // ?pfad=… — ein Bild, das das geänderte Dokument einbettet. Der Inhalt
+    // kommt direkt aus ADO, deshalb kann die Antwort auch leer ausfallen (kein
+    // Vorgängerstand, gelöschte Datei). Das ist kein Fehler, sondern die
+    // Auskunft "diese Seite gibt es nicht".
+    secured.get("/changes/:id/bild/:seite", async (req, reply) => {
+      const { id, seite } = req.params as { id: string; seite: string };
+      if (!istBildseite(seite)) return reply.code(400).send({ error: "Seite muss vorher oder nachher sein." });
+      const change = store.getChange(id);
+      if (!change) return reply.code(404).send({ error: "unbekannt" });
+      if (!bildDienst) return reply.code(404).send({ error: "Bilder nicht verfügbar" });
+
+      const pfad = (req.query as { pfad?: string }).pfad;
+      let bild;
+      try {
+        bild = await bildDienst.hole(change, seite, pfad);
+      } catch (e) {
+        req.log?.error?.(e);
+        return reply.code(502).send({ error: "Bild ist gerade nicht abrufbar." });
+      }
+      if (!bild) return reply.code(404).send({ error: "kein Bild" });
+      // Kurz zwischenspeichern reicht: holt ein neuer Commit die Änderung ein,
+      // bleibt die Adresse dieselbe, während sich der Inhalt ändert.
+      return reply.header("Cache-Control", "private, max-age=60").type(bild.contentType).send(bild.bytes);
     });
 
     secured.get("/guardians", async () => ({

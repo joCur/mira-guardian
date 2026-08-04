@@ -6,6 +6,7 @@ import { ApiClient, type MeetingResponse, type HistoryEntry } from "./api/client
 import { subscribe } from "./api/ws.js";
 import { catchUpChanges } from "./api/catchUp.js";
 import { createGuardianStore } from "./store.js";
+import { ApiProvider } from "./bild/kontext.js";
 import { useUpdateStatus } from "./useUpdateStatus.js";
 import { SetupDialog } from "./components/SetupDialog.js";
 import { UpdateBadge } from "./components/UpdateBadge.js";
@@ -108,6 +109,7 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   const openChange = (id: string) => { void store.getState().select(id).then(() => setTab("changes")); };
 
   return (
+    <ApiProvider api={api}>
     <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}
       titleBarExtra={<UpdateBadge status={update} currentVersion={appVersion}
         onInstall={() => void window.guardian.installUpdate()}
@@ -121,6 +123,7 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
       {tab === "guardians" && <GuardiansPanel api={api} serverUrl={serverUrl} onSignOut={onSignOut}
         appVersion={appVersion} update={update} />}
     </MainWindow>
+    </ApiProvider>
   );
 }
 

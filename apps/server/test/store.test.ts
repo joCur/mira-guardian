@@ -12,7 +12,7 @@ const change: Change = {
   id: "ch1", repo: "r", branch: "main", filePath: "docs/decisions/adr-013.md",
   changeKind: "add", commitId: "abc123", commitShort: "abc123",
   authorName: "Anna", authorEmail: "a@x.de", committedAt: "2026-07-19T10:00:00Z",
-  summary: "Neue Decision", oldMd: null, newMd: "# ADR", previousPath: null, cycleId: "cy1",
+  summary: "Neue Decision", oldMd: null, newMd: "# ADR", previousPath: null, baselineCommitId: null, cycleId: "cy1",
   firstSeenAt: "2026-07-19T10:00:00Z",
 };
 

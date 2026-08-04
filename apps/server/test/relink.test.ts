@@ -35,7 +35,7 @@ describe("Gerät mit bestehendem Profil verknüpfen", () => {
     s.upsertChange({ id: "c1", repo: "r", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
       committedAt: "t", summary: "s", oldMd: "o", newMd: "n",
-      previousPath: null, cycleId: s.getOpenCycle()!.id, firstSeenAt: "t" });
+      previousPath: null, baselineCommitId: null, cycleId: s.getOpenCycle()!.id, firstSeenAt: "t" });
     s.upsertVote({ changeId: "c1", guardianId: founderId, status: "akzeptiert", comment: null, updatedAt: "t" });
 
     const { code } = svc.relink(founderId, founderId);

@@ -2,6 +2,8 @@ import React from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkDiffMarks from "../diff/remarkDiffMarks.js";
+import { EingebettetesBild } from "./EingebettetesBild.js";
+import { BildseiteUmschalten } from "../bild/kontext.js";
 
 function LinkOut({ href, children }: { href?: string; children?: React.ReactNode }) {
   const ok = !!href && /^https?:\/\//.test(href);
@@ -39,9 +41,17 @@ const components: Components = {
   th: p => <th className="border border-ctp-surface1 bg-ctp-surface0 px-2 py-1 text-left text-ctp-text font-semibold">{p.children}</th>,
   td: p => <td className="border border-ctp-surface0 px-2 py-1 text-ctp-subtext1">{p.children}</td>,
   a: p => <LinkOut href={p.href}>{p.children}</LinkOut>,
-  img: () => null,
-  ins: p => <ins className="bg-ctp-green/25 text-ctp-green no-underline rounded px-0.5">{p.children}</ins>,
-  del: p => <del className="bg-ctp-red/20 text-ctp-red rounded px-0.5">{p.children}</del>,
+  img: p => <EingebettetesBild src={typeof p.src === "string" ? p.src : undefined} alt={p.alt} />,
+  ins: p => (
+    <BildseiteUmschalten seite="nachher">
+      <ins className="bg-ctp-green/25 text-ctp-green no-underline rounded px-0.5">{p.children}</ins>
+    </BildseiteUmschalten>
+  ),
+  del: p => (
+    <BildseiteUmschalten seite="vorher">
+      <del className="bg-ctp-red/20 text-ctp-red rounded px-0.5">{p.children}</del>
+    </BildseiteUmschalten>
+  ),
 };
 
 export function MarkdownBlock({ md }: { md: string }) {
