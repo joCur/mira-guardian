@@ -108,6 +108,53 @@ describe("AdoPoller", () => {
     expect(c.newMd).toBe("v2");
   });
 
+  // Gegenstück zum Test darüber: stehen bleibt nur eine Basis, die es gibt.
+  // Fehlt sie, schleppte der Folgecommit sie früher als "fehlt" weiter — der
+  // Eintrag zeigte dauerhaft das ganze Dokument statt des Unterschieds, weil
+  // upsertChange old_md nur beim Anlegen schreibt.
+  it("holt bei einer Folgeänderung die fehlende Vergleichsbasis nach", async () => {
+    s.upsertChange({
+      id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
+      commitId: "c1", commitShort: "c1", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
+      summary: "v1", oldMd: null, newMd: "v1", previousPath: null,
+      baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t",
+    });
+    ado.commits = [{ commitId: "c2", comment: "v2", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c2"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
+    ado.contentByCommit["c2"] = { "memory-bank/a.md": "v2" };
+    ado.contentBeforeCommit["c2"] = { "memory-bank/a.md": "v1" };
+    await poller.pollOnce();
+
+    const c = s.getChange("ch1")!;
+    expect(c.oldMd).toBe("v1");
+    expect(c.newMd).toBe("v2");
+  });
+
+  // Zum Verschiebe-Commit selbst kennt ADO unter dem alten Pfad keinen Stand
+  // mehr — die Basis muss deshalb aus dem Eintrag kommen, den wir schon haben.
+  it("nimmt nach einem reinen Verschieben den Stand aus dem Verschiebe-Commit als Basis", async () => {
+    ado.commits = [{ commitId: "c1", comment: "Verschoben", author: { name: "A", email: "a@x.de", date: "t" } }];
+    ado.changesByCommit["c1"] = [
+      { path: "memory-bank/neu.md", changeType: "edit", previousPath: "memory-bank/alt.md", contentUnchanged: true },
+    ];
+    ado.contentByCommit["c1"] = { "memory-bank/neu.md": "unveränderter Inhalt" };
+    await poller.pollOnce();
+    expect(s.listChangesByCycle("cy1")[0].changeKind).toBe("rename");
+
+    ado.commits = [
+      { commitId: "c2", comment: "Jetzt auch inhaltlich", author: { name: "A", email: "a@x.de", date: "t" } },
+      { commitId: "c1", comment: "Verschoben", author: { name: "A", email: "a@x.de", date: "t" } },
+    ];
+    ado.changesByCommit["c2"] = [{ path: "memory-bank/neu.md", changeType: "edit" }];
+    ado.contentByCommit["c2"] = { "memory-bank/neu.md": "jetzt geändert" };
+    await poller.pollOnce();
+
+    const c = s.listChangesByCycle("cy1")[0];
+    expect(c.changeKind).toBe("modify");
+    expect(c.oldMd).toBe("unveränderter Inhalt");
+    expect(c.newMd).toBe("jetzt geändert");
+  });
+
   // Bestandsdaten: Einträge, die vor dem Nachziehen der Vergleichsbasis
   // erfasst wurden, haben oldMd = null und sähen für immer aus wie neue
   // Dokumente — upsertChange lässt old_md bei Folgecommits absichtlich stehen.
@@ -165,6 +212,14 @@ describe("AdoPoller", () => {
       stumm.mockRestore();
       expect(s.getChange("ch1")!.oldMd).toBeNull();
       expect(s.getChange("ch2")!.oldMd).toBe("Basis für b");
+    });
+
+    it("fragt den festgehaltenen Bezugspunkt ab, nicht den jüngsten Commit", async () => {
+      s.upsertChange(bestand({ commitId: "c12", baselineCommitId: "c9" }));
+      ado.contentBeforeCommit["c9"] = { "memory-bank/a.md": "Stand beim ersten Sichten" };
+      ado.contentBeforeCommit["c12"] = { "memory-bank/a.md": "verkürzter Vergleich" };
+      expect(await poller.ergaenzeFehlendeVergleichsbasen()).toBe(1);
+      expect(s.getChange("ch1")!.oldMd).toBe("Stand beim ersten Sichten");
     });
 
     it("nutzt beim Verschieben den Pfad vor dem Commit", async () => {

@@ -62,6 +62,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   };
 }
 
+/**
+ * Der Commit in ADO, mit dieser Datei vorausgewählt — die Ansicht, die den
+ * Unterschied zeigt. Der Pfad wird kodiert, wie ADO es in seinen eigenen Links
+ * auch tut: ein `#` oder ein Leerzeichen im Dateinamen würde den Link sonst
+ * abschneiden.
+ */
 export function deepLink(cfg: Config, commitId: string, filePath: string): string {
-  return `${cfg.adoBaseUrl}/${cfg.adoCollection}/${cfg.adoProject}/_git/${cfg.adoRepo}/commit/${commitId}?path=/${filePath}`;
+  return `${cfg.adoBaseUrl}/${cfg.adoCollection}/${cfg.adoProject}/_git/${cfg.adoRepo}` +
+    `/commit/${commitId}?path=${encodeURIComponent("/" + filePath)}`;
 }

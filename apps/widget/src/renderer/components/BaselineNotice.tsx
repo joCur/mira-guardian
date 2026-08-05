@@ -1,13 +1,17 @@
 import React from "react";
 import type { ChangeKind } from "@guardian/shared";
+import { AdoLink } from "./AdoLink.js";
 
 /**
  * Zu einer geänderten oder gelöschten Datei fehlt der Stand von vorher, also
  * gibt es nichts zu vergleichen. Das muss dastehen: ohne den Hinweis liest sich
  * der unmarkierte Text wie ein frisch angelegtes Dokument, und der Hüter
  * bewertet eine Änderung, die er nie gesehen hat.
+ *
+ * Der Hinweis allein hilft aber nicht weiter, wenn die Änderung klein war —
+ * deshalb steht der Weg zum Diff in ADO gleich daneben.
  */
-export function BaselineNotice({ changeKind }: { changeKind: ChangeKind }) {
+export function BaselineNotice({ changeKind, adoLink }: { changeKind: ChangeKind; adoLink?: string }) {
   return (
     <div className="bg-ctp-yellow/10 border border-ctp-yellow/35 rounded-lg px-4 py-3 mb-4">
       <span className="text-xs tracking-[0.08em] font-semibold uppercase text-ctp-yellow">
@@ -17,6 +21,9 @@ export function BaselineNotice({ changeKind }: { changeKind: ChangeKind }) {
         {changeKind === "delete"
           ? "Der Inhalt vor dem Löschen ist nicht abrufbar."
           : "Unten steht das vollständige Dokument, nicht der Unterschied zum vorigen Stand."}
+      </div>
+      <div className="mt-2.5">
+        <AdoLink href={adoLink} label="Unterschied in ADO ansehen" />
       </div>
     </div>
   );

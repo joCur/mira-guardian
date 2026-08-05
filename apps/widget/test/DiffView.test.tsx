@@ -20,6 +20,14 @@ describe("DiffView", () => {
     expect(screen.getByText(/Vergleichsstand fehlt/)).toBeTruthy();
   });
 
+  // Der Hinweis allein rettet eine kleine Änderung nicht: ohne den Unterschied
+  // bleibt offen, was geändert wurde. Der Weg dahin steht deshalb daneben.
+  it("bietet beim fehlenden Vergleichsstand den Unterschied in ADO an", () => {
+    render(<DiffView change={change({ oldMd: null, newMd: NEW_MD, changeKind: "modify",
+      adoLink: "https://ado.x/MI/P/_git/R/commit/abc123" })} />);
+    expect(screen.getByRole("button", { name: /Unterschied in ADO ansehen/ })).toBeTruthy();
+  });
+
   it("zeigt den Hinweis nicht bei einem neu angelegten Dokument", () => {
     render(<DiffView change={change({ oldMd: null, newMd: NEW_MD, changeKind: "add" })} />);
     expect(screen.queryByText(/Vergleichsstand fehlt/)).toBeNull();

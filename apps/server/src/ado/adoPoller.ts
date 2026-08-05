@@ -53,7 +53,11 @@ export class AdoPoller {
       // Seiten erst beim Anzeigen geholt.
       if (istBilddatei(c.filePath)) continue;
       try {
-        const basis = await this.ado.getItemContentBefore(c.previousPath ?? c.filePath, c.commitId);
+        // Gegen den festgehaltenen Bezugspunkt, nicht gegen den jüngsten
+        // Commit: sonst verkürzte der Nachtrag den Vergleich auf die letzte
+        // Änderung, obwohl der Eintrag mehrere Commits umfasst.
+        const basis = await this.ado.getItemContentBefore(
+          c.previousPath ?? c.filePath, c.baselineCommitId ?? c.commitId);
         if (basis === null) continue; // ADO kennt keinen Vorgängerstand
         this.store.setBaseline(c.id, basis);
         ergaenzt++;
@@ -63,6 +67,40 @@ export class AdoPoller {
       }
     }
     return ergaenzt;
+  }
+
+  /**
+   * Der Stand, gegen den die Hüter vergleichen.
+   *
+   * Beim ersten Sichten ist das der Stand vor dem Commit. Bei einer
+   * Folgeänderung bleibt die einmal ermittelte Basis stehen — die Hüter sollen
+   * alles sehen, was seit ihrem letzten Blick passiert ist, nicht nur den
+   * jüngsten Commit.
+   *
+   * Fehlt die Basis dagegen, wird sie hier nachgeholt statt weitergeschleppt:
+   * `upsertChange` schreibt `old_md` nur beim Anlegen, also bliebe so ein
+   * Eintrag dauerhaft ohne Vergleich und zeigte das vollständige Dokument, als
+   * wäre es neu angelegt. Genau das passiert Einträgen aus der Zeit vor der
+   * Vergleichsbasis und solchen, die zuerst als reines Verschieben erfasst
+   * wurden.
+   */
+  private async vergleichsbasis(
+    existing: Change | undefined, fc: AdoFileChange, kind: ChangeKind,
+    commitId: string, istBild: boolean,
+  ): Promise<string | null> {
+    if (existing?.oldMd != null) return existing.oldMd;
+    // Neu angelegt heißt: es gibt naturgemäß keinen Vorgängerstand. Beim reinen
+    // Verschieben gibt es nichts zu vergleichen — und der alte Pfad ist im
+    // Commit selbst schon weg, ADO kennt dazu keinen Stand. Bilder tragen ihren
+    // Inhalt nicht in der Datenbank; beide Seiten holt die Bildroute.
+    if (kind === "add" || kind === "rename" || istBild) return null;
+    // Wurde die Datei zuerst nur verschoben und erst jetzt inhaltlich geändert,
+    // ist der Stand aus dem Verschiebe-Commit die Basis: dort war der Inhalt
+    // nachweislich derselbe wie davor (gleiche Blob-Id in ADO).
+    if (existing?.changeKind === "rename" && existing.newMd != null) return existing.newMd;
+    return this.ado.getItemContentBefore(
+      existing ? existing.previousPath ?? existing.filePath : fc.previousPath ?? fc.path,
+      existing?.baselineCommitId ?? commitId);
   }
 
   async pollOnce(): Promise<string[]> {
@@ -131,15 +169,7 @@ export class AdoPoller {
         const newMd = kind === "delete" || istBild
           ? null
           : await this.ado.getItemContent(fc.path, commit.commitId);
-        // Beim ersten Sichten holen wir den Stand vor dem Commit als
-        // Vergleichsbasis. Bei einer Folgeänderung bleibt die ursprüngliche
-        // Basis stehen: die Hüter sollen alles sehen, was seit ihrem letzten
-        // Blick passiert ist, nicht nur den jüngsten Commit.
-        const oldMd: string | null = existing
-          ? existing.oldMd
-          : kind === "add" || istBild
-            ? null // neu angelegt — es gibt naturgemäß keinen Vorgängerstand
-            : await this.ado.getItemContentBefore(fc.previousPath ?? fc.path, commit.commitId);
+        const oldMd = await this.vergleichsbasis(existing, fc, kind, commit.commitId, istBild);
         const change: Change = {
           id: existing?.id ?? randomUUID(),
           repo, branch, filePath: fc.path, changeKind: kind,

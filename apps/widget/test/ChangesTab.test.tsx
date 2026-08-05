@@ -66,6 +66,16 @@ describe("ChangesTab vote flow", () => {
     expect(screen.getByText("VERSCHOBEN")).toBeTruthy();
   });
 
+  // Neben dem Commit-Kürzel, weil der Knopf genau dorthin führt.
+  it("führt aus der Überschrift zum Commit in ADO", async () => {
+    const open = vi.fn();
+    (window as any).guardian = { openExternal: open };
+    const c = change("c1", { adoLink: "https://ado.x/MI/P/_git/R/commit/abc1234" });
+    render(<ChangesTab toRate={[c]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /In ADO ansehen/ }));
+    expect(open).toHaveBeenCalledWith("https://ado.x/MI/P/_git/R/commit/abc1234");
+  });
+
   it("clears draft when selected change changes externally", async () => {
     const c1 = change("c1");
     const c2 = change("c2");
