@@ -61,7 +61,13 @@ describe("config", () => {
   it("builds a commit deep-link", () => {
     const cfg = loadConfig(base as any);
     expect(deepLink(cfg, "abc123", "docs/decisions/adr.md")).toBe(
-      "https://ado.example.com/DefaultCollection/mira/_git/mira/commit/abc123?path=/docs/decisions/adr.md"
+      "https://ado.example.com/DefaultCollection/mira/_git/mira/commit/abc123?path=%2Fdocs%2Fdecisions%2Fadr.md"
     );
+  });
+
+  // Ein Doppelkreuz im Dateinamen beendete die URL sonst vor dem Pfad.
+  it("kodiert Sonderzeichen im Pfad", () => {
+    const cfg = loadConfig(base as any);
+    expect(deepLink(cfg, "abc123", "docs/learnings/a #2.md")).toContain("path=%2Fdocs%2Flearnings%2Fa%20%232.md");
   });
 });

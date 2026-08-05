@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { ChangeWithVotes, Guardian, VoteStatus } from "@guardian/shared";
 import { fileType, STATUS_LABELS } from "@guardian/shared";
 import { statusText, statusBorder, aggregateDot, typeBadge } from "../../theme.js";
+import { AdoLink } from "../AdoLink.js";
 import { DiffView } from "../DiffView.js";
 import { moveLabel } from "../RenameNotice.js";
 import { EmptyState, ICON_SHIELD_CHECK } from "../EmptyState.js";
@@ -187,6 +188,9 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
             {moveLabel(sel.previousPath, sel.filePath).toUpperCase()}</span>}
           {ausDemVerlauf && <span className="text-xs font-bold tracking-wide text-ctp-green bg-ctp-green/20 rounded px-1.5 py-0.5 shrink-0">VON ALLEN AKZEPTIERT</span>}
           <span className="font-mono text-xs text-ctp-subtext0 bg-ctp-surface0 border border-ctp-surface1 rounded px-1.5 py-0.5 shrink-0">{sel.commitShort}</span>
+          {/* Neben dem Commit, weil der Knopf genau dorthin führt: zum Diff
+              dieses Commits in ADO. */}
+          <AdoLink href={sel.adoLink} />
         </div>
         <div className="text-xs text-ctp-subtext0 mt-1">{sel.summary} · {sel.authorName}{selDate ? ` · ${selDate}` : ""}</div>
         <div className="flex gap-2 mt-2.5 flex-wrap">

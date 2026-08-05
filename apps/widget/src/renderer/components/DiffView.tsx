@@ -66,7 +66,7 @@ function DokumentDiff({ change }: { change: ChangeWithVotes }) {
       {change.previousPath && (
         <RenameNotice previousPath={change.previousPath} filePath={change.filePath} changeKind={change.changeKind} />
       )}
-      {basisFehlt && <BaselineNotice changeKind={change.changeKind} />}
+      {basisFehlt && <BaselineNotice changeKind={change.changeKind} adoLink={change.adoLink} />}
       <FrontmatterCard fields={fields} />
       {fmBroken && <MarkdownBlock md={"```yaml\n" + newSplit.fm + "\n```"} />}
       {blocks.map(wrap(change.id))}
