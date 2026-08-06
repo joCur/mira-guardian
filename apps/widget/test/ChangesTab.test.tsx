@@ -130,6 +130,57 @@ describe("ChangesTab mit von mir bewerteten Änderungen", () => {
   });
 });
 
+// Zum Abarbeiten zählt die Arbeitsliste; das Bewertete steht daneben und soll
+// nicht scrollen lassen. Also zugeklappt starten, aber immer erreichbar sein.
+describe("ChangesTab mit klappbaren Abschnitten", () => {
+  const bewertet = (id: string, filePath: string) =>
+    change(id, { filePath, votes: [{ changeId: id, guardianId: "g1", status: "abgelehnt", comment: "weil", updatedAt: "t" }] });
+
+  const mitBeidem = (extra: Record<string, unknown> = {}) => (
+    <ChangesTab toRate={[change("c1")]} ratedByMe={[bewertet("c2", "memory-bank/nein.md")]}
+      selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} {...extra} />
+  );
+
+  // In der Liste steht nur der Dateiname; der vollständige Pfad gehört der
+  // Detailüberschrift und bleibt auch bei zugeklappter Liste stehen.
+  const inListe = (name: string) => screen.queryByText(name, { selector: "span.font-mono" });
+
+  it("starts with only the working list open", () => {
+    render(mitBeidem());
+    expect(inListe("a.md")).toBeTruthy();       // zu bewerten, sichtbar
+    expect(inListe("nein.md")).toBeNull();      // bewertet, eingeklappt
+    // Der Kopf bleibt da und sagt mit der Anzahl, was darin steckt.
+    expect(screen.getByText("VON MIR BEWERTET")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /VON MIR BEWERTET/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: /ZU BEWERTEN/ }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("opens and closes a section on click", async () => {
+    render(mitBeidem());
+    await userEvent.click(screen.getByRole("button", { name: /VON MIR BEWERTET/ }));
+    expect(inListe("nein.md")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: /VON MIR BEWERTET/ }));
+    expect(inListe("nein.md")).toBeNull();
+  });
+
+  it("lets the working list be collapsed too", async () => {
+    render(mitBeidem());
+    await userEvent.click(screen.getByRole("button", { name: /ZU BEWERTEN/ }));
+    expect(inListe("a.md")).toBeNull();
+    // Die Auswahl bleibt rechts stehen — zugeklappt heißt nicht abgewählt.
+    expect(screen.getByText("memory-bank/a.md")).toBeTruthy();
+  });
+
+  // Treffer zu verstecken sähe aus wie "nichts gefunden". Der Begriff steht in
+  // beiden Listen, es bleibt also etwas zu bewerten — nur die Suche öffnet hier.
+  it("opens a collapsed section when the search hits inside it", async () => {
+    render(mitBeidem());
+    await userEvent.type(screen.getByRole("searchbox"), "Node 22");
+    expect(inListe("a.md")).toBeTruthy();
+    expect(inListe("nein.md")).toBeTruthy();
+  });
+});
+
 // Der Fehler: der Verlauf öffnete eine abgeschlossene Änderung, angezeigt wurde
 // aber die erste offene aus der Liste.
 describe("ChangesTab mit einer Änderung aus dem Verlauf", () => {
