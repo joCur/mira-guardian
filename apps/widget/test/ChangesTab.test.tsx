@@ -51,7 +51,7 @@ describe("ChangesTab vote flow", () => {
 
   // Wer eine Begründung verlangt bekommt, soll ohne zweiten Klick lostippen können.
   it("focuses the comment field as soon as it opens", async () => {
-    render(<ChangesTab toRate={[change()]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    render(<ChangesTab toRate={[change()]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: /Klärungsbedarf/ }));
     expect(document.activeElement).toBe(screen.getByRole("textbox"));
     await userEvent.keyboard("bitte klären");
