@@ -253,7 +253,9 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
         {draft && meineBewertungSteht && (
           <div>
             <div className={`text-xs font-semibold mb-1.5 ${statusText(draft.status)}`}>{STATUS_LABELS[draft.status]} — Kommentar erforderlich</div>
-            <textarea value={draft.comment} onChange={e => setDraft({ ...draft, comment: e.target.value })}
+            {/* autoFocus: Wer „Klärungsbedarf" oder „Abgelehnt" drückt, will
+                sofort tippen — ein zweiter Klick ins Feld wäre nur Reibung. */}
+            <textarea autoFocus value={draft.comment} onChange={e => setDraft({ ...draft, comment: e.target.value })}
               placeholder="Warum? Dieser Kommentar wird im Wochen-Meeting besprochen…"
               className="w-full h-16 bg-ctp-crust border border-ctp-surface1 focus:border-ctp-overlay0 rounded-lg text-xs text-ctp-text placeholder:text-ctp-overlay0 px-2.5 py-2 resize-none outline-none" />
             <div className="flex gap-2.5 justify-end mt-2">

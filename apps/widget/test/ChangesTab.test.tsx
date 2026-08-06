@@ -49,6 +49,19 @@ describe("ChangesTab vote flow", () => {
     expect(onVote).toHaveBeenCalledWith("c1", "abgelehnt", "nein!");
   });
 
+  // Wer eine Begründung verlangt bekommt, soll ohne zweiten Klick lostippen können.
+  it("focuses the comment field as soon as it opens", async () => {
+    render(<ChangesTab toRate={[change()]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /Klärungsbedarf/ }));
+    expect(document.activeElement).toBe(screen.getByRole("textbox"));
+    await userEvent.keyboard("bitte klären");
+    expect(screen.getByRole("textbox")).toHaveProperty("value", "bitte klären");
+    // Auch beim zweiten Anlauf, nicht nur beim allerersten Öffnen.
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+    await userEvent.click(screen.getByRole("button", { name: /Abgelehnt/ }));
+    expect(document.activeElement).toBe(screen.getByRole("textbox"));
+  });
+
   // Ohne eigene Bewertungszeile war die Fußleiste leer und man konnte nichts
   // anklicken. Keine Zeile bedeutet fachlich "noch nicht bewertet".
   it("still offers the vote buttons when no vote row exists for me", async () => {
