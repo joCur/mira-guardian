@@ -1,10 +1,10 @@
 // Nach einer Bewertung rückt die Auswahl weiter, damit man die Liste
 // durcharbeiten kann, ohne jedes Mal zu klicken.
 //
-// Verlässt die bewertete Änderung die Liste (Akzeptieren), rückt der
-// nachfolgende Eintrag auf ihren Platz — die Position bleibt also gleich.
-// Bleibt sie stehen (Ablehnen, Klärungsbedarf), geht es eine Position
-// weiter. Am Listenende beginnt es von vorn.
+// Verlässt die bewertete Änderung die Liste — jede Bewertung tut das —, rückt
+// der nachfolgende Eintrag auf ihren Platz: die Position bleibt also gleich.
+// Bleibt sie stehen ("Neu bewerten" setzt sie zurück auf ausstehend), geht es
+// eine Position weiter. Am Listenende beginnt es von vorn.
 export function nextSelection(
   before: Array<{ id: string }>,
   votedId: string,

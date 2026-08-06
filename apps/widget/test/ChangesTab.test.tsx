@@ -21,7 +21,7 @@ function abgeschlossen(id = "c9"): ChangeWithVotes {
 
 describe("ChangesTab empty state", () => {
   it("shows the shield empty state when there are no changes", () => {
-    render(<ChangesTab toRate={[]} acceptedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    render(<ChangesTab toRate={[]} ratedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.getByText("Keine offenen Änderungen")).toBeTruthy();
     expect(screen.getByText(/erscheinen hier automatisch/)).toBeTruthy();
   });
@@ -30,14 +30,14 @@ describe("ChangesTab empty state", () => {
 describe("ChangesTab vote flow", () => {
   it("accept votes immediately with no comment", async () => {
     const onVote = vi.fn();
-    render(<ChangesTab toRate={[change()]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
+    render(<ChangesTab toRate={[change()]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
     await userEvent.click(screen.getByRole("button", { name: /Akzeptiert/ }));
     expect(onVote).toHaveBeenCalledWith("c1", "akzeptiert", "");
   });
 
   it("blocks a rejection until a comment of >=5 chars is entered", async () => {
     const onVote = vi.fn();
-    render(<ChangesTab toRate={[change()]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
+    render(<ChangesTab toRate={[change()]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
     await userEvent.click(screen.getByRole("button", { name: /Abgelehnt/ }));
     const save = screen.getByRole("button", { name: "Bewertung speichern" });
     expect(save).toHaveProperty("disabled", true);
@@ -54,7 +54,7 @@ describe("ChangesTab vote flow", () => {
   it("still offers the vote buttons when no vote row exists for me", async () => {
     const onVote = vi.fn();
     const ohneMich = { ...change(), votes: [] };
-    render(<ChangesTab toRate={[ohneMich]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
+    render(<ChangesTab toRate={[ohneMich]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
     await userEvent.click(screen.getByRole("button", { name: /Akzeptiert/ }));
     expect(onVote).toHaveBeenCalledWith("c1", "akzeptiert", "");
   });
@@ -62,7 +62,7 @@ describe("ChangesTab vote flow", () => {
   it("shows the move badge and the old path in the header", () => {
     const verschoben = { ...change(), changeKind: "rename" as const,
       filePath: "apps/mira-desktop/docs/decisions/adr.md", previousPath: "docs/decisions/adr.md" };
-    render(<ChangesTab toRate={[verschoben]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    render(<ChangesTab toRate={[verschoben]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.getByText("VERSCHOBEN")).toBeTruthy();
   });
 
@@ -71,7 +71,7 @@ describe("ChangesTab vote flow", () => {
     const open = vi.fn();
     (window as any).guardian = { openExternal: open };
     const c = change("c1", { adoLink: "https://ado.x/MI/P/_git/R/commit/abc1234" });
-    render(<ChangesTab toRate={[c]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    render(<ChangesTab toRate={[c]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: /In ADO ansehen/ }));
     expect(open).toHaveBeenCalledWith("https://ado.x/MI/P/_git/R/commit/abc1234");
   });
@@ -79,11 +79,41 @@ describe("ChangesTab vote flow", () => {
   it("clears draft when selected change changes externally", async () => {
     const c1 = change("c1");
     const c2 = change("c2");
-    const { rerender } = render(<ChangesTab toRate={[c1, c2]} acceptedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    const { rerender } = render(<ChangesTab toRate={[c1, c2]} ratedByMe={[]} selectedId="c1" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: /Abgelehnt/ }));
     expect(screen.getByRole("textbox")).toBeTruthy();
-    rerender(<ChangesTab toRate={[c1, c2]} acceptedByMe={[]} selectedId="c2" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    rerender(<ChangesTab toRate={[c1, c2]} ratedByMe={[]} selectedId="c2" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+});
+
+// Bewertet ist bewertet: der Eintrag steht nicht mehr unter "zu bewerten",
+// bleibt aber sichtbar — mit dem Zeichen, das sagt, was ich gesagt habe.
+describe("ChangesTab mit von mir bewerteten Änderungen", () => {
+  const bewertet = (id: string, status: "akzeptiert" | "klaerung" | "abgelehnt", filePath: string) =>
+    change(id, { filePath, votes: [{ changeId: id, guardianId: "g1", status, comment: "weil", updatedAt: "t" }] });
+
+  it("lists them under their own heading, not under ZU BEWERTEN", () => {
+    render(<ChangesTab toRate={[]} ratedByMe={[bewertet("c2", "klaerung", "memory-bank/streit.md")]}
+      selectedId="c2" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.getByText("VON MIR BEWERTET")).toBeTruthy();
+    expect(screen.queryByText("ZU BEWERTEN")).toBeNull();
+  });
+
+  it("marks each entry with my own verdict", () => {
+    render(<ChangesTab toRate={[]} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} selectedId="c2"
+      ratedByMe={[bewertet("c2", "abgelehnt", "memory-bank/nein.md"), bewertet("c3", "akzeptiert", "memory-bank/ja.md")]} />);
+    expect(screen.getByTitle("Abgelehnt").textContent).toBe("✕");
+    expect(screen.getByTitle("Akzeptiert").textContent).toBe("✓");
+  });
+
+  // Ohne offene Änderung darf nicht der "alles erledigt"-Zustand erscheinen —
+  // die Einwände warten ja noch aufs Meeting.
+  it("does not fall back to the empty state", () => {
+    render(<ChangesTab toRate={[]} ratedByMe={[bewertet("c2", "klaerung", "memory-bank/streit.md")]}
+      selectedId="c2" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    expect(screen.queryByText("Keine offenen Änderungen")).toBeNull();
+    expect(screen.getByText("memory-bank/streit.md")).toBeTruthy();
   });
 });
 
@@ -91,21 +121,21 @@ describe("ChangesTab vote flow", () => {
 // aber die erste offene aus der Liste.
 describe("ChangesTab mit einer Änderung aus dem Verlauf", () => {
   it("shows the change from the history, not the first open one", () => {
-    render(<ChangesTab toRate={[change("c1")]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+    render(<ChangesTab toRate={[change("c1")]} ratedByMe={[]} fromHistory={abgeschlossen()}
       selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.getByText("memory-bank/alt.md")).toBeTruthy();
     expect(screen.queryByText("memory-bank/a.md")).toBeNull();
   });
 
   it("names it in the sidebar and marks it as accepted by everyone", () => {
-    render(<ChangesTab toRate={[change("c1")]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+    render(<ChangesTab toRate={[change("c1")]} ratedByMe={[]} fromHistory={abgeschlossen()}
       selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.getByText("AUS DEM VERLAUF")).toBeTruthy();
     expect(screen.getByText("VON ALLEN AKZEPTIERT")).toBeTruthy();
   });
 
   it("shows it even when both lists are empty", () => {
-    render(<ChangesTab toRate={[]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+    render(<ChangesTab toRate={[]} ratedByMe={[]} fromHistory={abgeschlossen()}
       selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.queryByText("Keine offenen Änderungen")).toBeNull();
     expect(screen.getByText("memory-bank/alt.md")).toBeTruthy();
@@ -114,14 +144,14 @@ describe("ChangesTab mit einer Änderung aus dem Verlauf", () => {
   // Wieder ins Team holen muss von hier aus möglich bleiben.
   it("offers a re-vote for it", async () => {
     const onVote = vi.fn();
-    render(<ChangesTab toRate={[]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+    render(<ChangesTab toRate={[]} ratedByMe={[]} fromHistory={abgeschlossen()}
       selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={onVote} />);
     await userEvent.click(screen.getByRole("button", { name: "Neu bewerten" }));
     expect(onVote).toHaveBeenCalledWith("c9", "offen", "");
   });
 
   it("keeps the badge off a normal open change", () => {
-    render(<ChangesTab toRate={[change("c1")]} acceptedByMe={[]} selectedId="c1"
+    render(<ChangesTab toRate={[change("c1")]} ratedByMe={[]} selectedId="c1"
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.queryByText("VON ALLEN AKZEPTIERT")).toBeNull();
     expect(screen.queryByText("AUS DEM VERLAUF")).toBeNull();
@@ -135,7 +165,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
   const nlp = change("c2", { filePath: "services/nlp/docs/learnings/tokenizer.md", summary: "Tokenizer-Falle", authorName: "Bernd" });
   const root = change("c3", { filePath: "docs/processes/release.md", summary: "Freigabe angepasst" });
   const drei = (selectedId: string | null = "c1") =>
-    render(<ChangesTab toRate={[web, nlp, root]} acceptedByMe={[]} selectedId={selectedId}
+    render(<ChangesTab toRate={[web, nlp, root]} ratedByMe={[]} selectedId={selectedId}
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
 
   it("names the level of every record", () => {
@@ -227,7 +257,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
   });
 
   it("hides a dropdown that has only one choice", () => {
-    render(<ChangesTab toRate={[root]} acceptedByMe={[]} selectedId="c3"
+    render(<ChangesTab toRate={[root]} ratedByMe={[]} selectedId="c3"
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.queryByLabelText("Ebene")).toBeNull();
     expect(screen.queryByLabelText("Typ")).toBeNull();
@@ -236,7 +266,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
 
   // Sie wurde gezielt geöffnet — ein Filter darf sie nicht verschlucken.
   it("never filters away the change opened from the history", async () => {
-    render(<ChangesTab toRate={[web]} acceptedByMe={[]} fromHistory={abgeschlossen()}
+    render(<ChangesTab toRate={[web]} ratedByMe={[]} fromHistory={abgeschlossen()}
       selectedId="c9" guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.type(screen.getByLabelText("Suchen"), "zzz");
     expect(screen.getByText("AUS DEM VERLAUF")).toBeTruthy();
@@ -249,7 +279,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
     const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
       oldMd: "Ab 500 Zeilen virtualisieren wir.",
       newMd: "Ab 200 Zeilen virtualisieren wir. Darunter kostet es mehr als es bringt." });
-    render(<ChangesTab toRate={[doc, nlp]} acceptedByMe={[]} selectedId="c1"
+    render(<ChangesTab toRate={[doc, nlp]} ratedByMe={[]} selectedId="c1"
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.type(screen.getByLabelText("Suchen"), "darunter");
     expect(screen.getByText("tabellen.md")).toBeTruthy();
@@ -262,7 +292,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
   it("marks a passage that only exists in the previous version", async () => {
     const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
       oldMd: "Ab 500 Zeilen virtualisieren wir.", newMd: "Ab 200 Zeilen virtualisieren wir." });
-    render(<ChangesTab toRate={[doc]} acceptedByMe={[]} selectedId="c1"
+    render(<ChangesTab toRate={[doc]} ratedByMe={[]} selectedId="c1"
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.type(screen.getByLabelText("Suchen"), "500");
     expect(screen.getByText("ALT")).toBeTruthy();
@@ -271,7 +301,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
   it("shows no passage when the hit is visible in the row anyway", async () => {
     const doc = change("c1", { filePath: "docs/decisions/tabellen.md", summary: "Schwelle angepasst",
       newMd: "Ab 200 Zeilen virtualisieren wir." });
-    render(<ChangesTab toRate={[doc]} acceptedByMe={[]} selectedId="c1"
+    render(<ChangesTab toRate={[doc]} ratedByMe={[]} selectedId="c1"
       guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     await userEvent.type(screen.getByLabelText("Suchen"), "schwelle");
     expect(screen.getByText("tabellen.md")).toBeTruthy();
@@ -279,7 +309,7 @@ describe("ChangesTab mit Ebenen, Suche und Filter", () => {
   });
 
   it("shows the empty state, not the filter, when there is nothing at all", () => {
-    render(<ChangesTab toRate={[]} acceptedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
+    render(<ChangesTab toRate={[]} ratedByMe={[]} selectedId={null} guardianId="g1" onSelect={vi.fn()} onVote={vi.fn()} />);
     expect(screen.getByText("Keine offenen Änderungen")).toBeTruthy();
     expect(screen.queryByLabelText("Suchen")).toBeNull();
   });

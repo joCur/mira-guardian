@@ -37,10 +37,16 @@ describe("ChangeService — zyklusfreie Listen", () => {
     expect(svc.toRate("g1").map(c => c.id)).toEqual(["c2"]);
   });
 
-  it("toRate keeps changes I rejected — they stay unresolved", () => {
+  // Ein Einwand ist eine Bewertung: ein zweites Mal bewerten muss ich nicht.
+  it("toRate drops changes I rejected or flagged for discussion", () => {
     add("c1", "cy1", "docs/decisions/a.md");
+    add("c2", "cy2", "docs/decisions/b.md");
     vote("c1", "g1", "abgelehnt");
-    expect(svc.toRate("g1").map(c => c.id)).toEqual(["c1"]);
+    vote("c2", "g1", "klaerung");
+    expect(svc.toRate("g1")).toHaveLength(0);
+    expect(svc.ratedByMe("g1").map(c => c.id)).toEqual(["c1", "c2"]);
+    // Für die anderen Hüter ist beides weiterhin zu bewerten.
+    expect(svc.toRate("g2").map(c => c.id)).toEqual(["c1", "c2"]);
   });
 
   it("toRate drops changes everyone accepted", () => {
@@ -48,14 +54,23 @@ describe("ChangeService — zyklusfreie Listen", () => {
     vote("c1", "g1", "akzeptiert");
     vote("c1", "g2", "akzeptiert");
     expect(svc.toRate("g1")).toHaveLength(0);
-    expect(svc.acceptedByMe("g1")).toHaveLength(0);
+    expect(svc.ratedByMe("g1")).toHaveLength(0);
   });
 
-  it("acceptedByMe holds what I accepted while others are pending", () => {
+  it("ratedByMe holds what I rated while others are pending", () => {
     add("c1", "cy1", "docs/decisions/a.md");
     vote("c1", "g1", "akzeptiert");
-    expect(svc.acceptedByMe("g1").map(c => c.id)).toEqual(["c1"]);
-    expect(svc.acceptedByMe("g2")).toHaveLength(0);
+    expect(svc.ratedByMe("g1").map(c => c.id)).toEqual(["c1"]);
+    expect(svc.ratedByMe("g2")).toHaveLength(0);
+  });
+
+  // "Neu bewerten" holt die Änderung zurück in die Arbeitsliste.
+  it("toRate takes a change back once I reset my vote to pending", () => {
+    add("c1", "cy1", "docs/decisions/a.md");
+    vote("c1", "g1", "klaerung");
+    s.upsertVote({ changeId: "c1", guardianId: "g1", status: "offen", comment: null, updatedAt: "t" });
+    expect(svc.toRate("g1").map(c => c.id)).toEqual(["c1"]);
+    expect(svc.ratedByMe("g1")).toHaveLength(0);
   });
 
   it("openChanges sorts worst-first across cycles", () => {

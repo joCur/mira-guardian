@@ -36,14 +36,19 @@ export class ChangeService {
     return this.votes(changeId).find(v => v.guardianId === guardianId)?.status;
   }
 
-  // Meine Arbeitsliste: alles Unerledigte, das ich noch nicht akzeptiert habe
-  // (auch von mir Abgelehntes — das bleibt offen, bis es geklärt ist).
+  // Meine Arbeitsliste: nur, wozu ich noch nichts gesagt habe. Habe ich Stellung
+  // genommen — auch mit Einwand —, ist für mich nichts mehr zu tun; ein zweites
+  // Mal bewerten muss ich nicht.
   toRate(guardianId: string): Change[] {
-    return this.openChanges().filter(c => this.myStatus(c.id, guardianId) !== "akzeptiert");
+    return this.openChanges().filter(c => (this.myStatus(c.id, guardianId) ?? "offen") === "offen");
   }
-  // Von mir akzeptiert, wartet noch auf andere Hüter.
-  acceptedByMe(guardianId: string): Change[] {
-    return this.openChanges().filter(c => this.myStatus(c.id, guardianId) === "akzeptiert");
+  // Von mir bewertet, aber noch nicht durch: wartet auf die übrigen Hüter oder,
+  // bei Einwand, auf die Klärung im Meeting.
+  ratedByMe(guardianId: string): Change[] {
+    return this.openChanges().filter(c => {
+      const s = this.myStatus(c.id, guardianId);
+      return s !== undefined && s !== "offen";
+    });
   }
 
   badgeCount(guardianId: string): number {

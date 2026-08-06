@@ -4,7 +4,13 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-export interface ChangesResponse { toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; badge: number }
+export interface ChangesResponse {
+  toRate: ChangeWithVotes[];
+  ratedByMe: ChangeWithVotes[];
+  /** Ein Server vor der Aufteilung kennt nur diese Liste — siehe store.ts. */
+  acceptedByMe?: ChangeWithVotes[];
+  badge: number;
+}
 export interface MeetingCounts { abgelehnt: number; klaerung: number; offen: number; gesamt: number }
 export interface MeetingResponse { changes: ChangeWithVotes[]; counts: MeetingCounts }
 export interface HistoryEntry {

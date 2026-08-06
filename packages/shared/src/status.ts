@@ -7,6 +7,15 @@ export const STATUS_LABELS: Record<VoteStatus, string> = {
   abgelehnt: "Abgelehnt",
 };
 
+// Kurzzeichen für Stellen, an denen das Wort nicht hinpasst: Knöpfe und die
+// schmale Änderungsliste.
+export const STATUS_MARK: Record<VoteStatus, string> = {
+  offen: "·",
+  akzeptiert: "✓",
+  klaerung: "?",
+  abgelehnt: "✕",
+};
+
 // Memory-Bank-Levels: Records liegen auf Repo-Root ODER App-Ebene
 // (apps/<app>/docs/…), daher Match auf Segmentgrenze statt Root-Anker.
 export const DEFAULT_TYPE_RULES: TypeRule[] = [

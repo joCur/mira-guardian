@@ -71,7 +71,7 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
       if (!alive) return;
       const st = store.getState();
       const { toToast, watermark } = catchUpChanges(
-        [...st.toRate, ...st.acceptedByMe], meR.guardian.id, lastSeen, new Date().toISOString());
+        [...st.toRate, ...st.ratedByMe], meR.guardian.id, lastSeen, new Date().toISOString());
       for (const c of toToast) {
         void window.guardian.showToast({
           changeId: c.id, filePath: c.filePath, summary: c.summary,
@@ -114,7 +114,7 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
       titleBarExtra={<UpdateBadge status={update} currentVersion={appVersion}
         onInstall={() => void window.guardian.installUpdate()}
         onOpenNotes={(url) => void window.guardian.openExternal(url)} />}>
-      {tab === "changes" && <ChangesTab toRate={state.toRate} acceptedByMe={state.acceptedByMe} selectedId={state.selectedId}
+      {tab === "changes" && <ChangesTab toRate={state.toRate} ratedByMe={state.ratedByMe} selectedId={state.selectedId}
         fromHistory={state.fromHistory}
         guardianId={guardianId} guardians={guardians} onSelect={(id) => void store.getState().select(id)}
         onVote={(id, s, c) => store.getState().castVote(id, s, c)} />}
