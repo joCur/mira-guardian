@@ -88,8 +88,8 @@ Version der App. Weichen beide voneinander ab, weist die App darauf hin.
 
 Jeder Push auf `main` erzeugt ein Release: Server-Image und Widget-Apps tragen
 dieselbe Versionsnummer. Das Widget holt sich neue Versionen selbst — damit der
-Server nicht zurückfällt, liegt hier ein systemd-Timer, der stündlich nach einem
-neuen Image sieht.
+Server nicht zurückfällt, liegt hier ein systemd-Timer, der alle fünf Minuten nach
+einem neuen Image sieht.
 
 Der Server zieht dabei selbst; es gibt keinen Deployment-Schritt in der Pipeline,
 keinen Zugang von GitHub auf den Server und keinen Dienst mit Docker-Socket.
@@ -167,11 +167,16 @@ systemctl --user edit guardian-update.timer          # OnCalendar= überschreibe
 systemctl --user disable --now guardian-update.timer
 ```
 
-Stündlich ist auf das Widget abgestimmt, das alle sechs Stunden nach Updates
-sieht. Ein Fenster mit unterschiedlichen Versionen bleibt damit möglich; das
-Widget weist im Hüter-Tab darauf hin. Wer Neustarts aus der Arbeitszeit
-heraushalten will, setzt etwa `OnCalendar=03:00` — dann läuft der Server dem
-Widget allerdings bis zu einen Tag hinterher.
+Alle fünf Minuten heißt: ein Release steht spätestens fünf Minuten nach dem Ende
+der Pipeline auf dem Server. Der Preis ist eine Digest-Abfrage an der Registry im
+selben Takt — ein Container-Neustart entsteht daraus nur, wenn wirklich ein neues
+Image da ist, also höchstens so oft wie es Releases gibt.
+
+Wer Neustarts aus der Arbeitszeit heraushalten will, setzt stattdessen etwa
+`OnCalendar=03:00`; dann läuft der Server den Widgets aber bis zu einen Tag
+hinterher. Ein Fenster mit unterschiedlichen Versionen bleibt in jedem Fall
+möglich, weil die Widgets ihrerseits nur alle sechs Stunden nach Updates sehen —
+das Widget weist im Hüter-Tab darauf hin.
 
 ### Was der Timer nicht tut
 
@@ -179,8 +184,8 @@ Er zieht **kein Backup**. Schema-Migrationen laufen von jetzt an unbeaufsichtigt
 beim Containerstart, und der einzige Rückweg aus einer fehlgeschlagenen Migration
 ist eine Kopie von `./data` (siehe unten) — die gehört in eine eigene,
 regelmäßige Sicherung. Im Update-Skript wäre sie falsch aufgehoben: ein
-konsistentes Backup braucht einen gestoppten Container, also stündlich einen
-Ausfall für eine Sicherung, die fast immer unnötig ist.
+konsistentes Backup braucht einen gestoppten Container, also alle fünf Minuten
+einen Ausfall für eine Sicherung, die fast immer unnötig ist.
 
 ## Anmeldung eines Hüters wiederherstellen
 

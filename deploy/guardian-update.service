@@ -14,4 +14,8 @@ ExecStart=%h/mira-guardian/guardian-update.sh
 
 # Der Standardwert liegt bei 90 Sekunden und würde einen langsamen Pull oder das
 # --wait-timeout des Skripts (180 s) mitten im Update abschneiden.
+#
+# Der Wert liegt über dem Fünf-Minuten-Takt des Timers, und das ist unkritisch:
+# feuert der Timer, während ein Lauf noch aktiv ist, mischt systemd die
+# Startanforderung in den laufenden Job — es gibt keinen zweiten, parallelen Pull.
 TimeoutStartSec=15min
