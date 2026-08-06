@@ -1,8 +1,8 @@
 # Mira Guardian — Server-Betrieb aus dem veröffentlichten Container-Image.
 #
 # Für die lokale Entwicklung ist die docker-compose.yml im Repo-Wurzelverzeichnis
-# gedacht; die baut das Image aus dem Arbeitsstand. Diese Datei hier betreibt eine
-# feste Release-Version aus der GitHub Container Registry.
+# gedacht; die baut das Image aus dem Arbeitsstand. Diese Datei hier betreibt ein
+# veröffentlichtes Release-Image aus der GitHub Container Registry.
 #
 # Die SQLite-Datenbank liegt absichtlich als Bind-Mount unter ./data und nicht in
 # einem Docker-Volume: so ist sie im Dateisystem sichtbar, und ein Umzug auf einen
@@ -12,15 +12,17 @@ name: mira-guardian
 
 services:
   server:
-    # Version über GUARDIAN_VERSION in der .env — ein Update ist damit eine
-    # bewusste Änderung und kein Nebeneffekt eines Neustarts. Bewusst ohne
-    # Standardwert: der würde hier veralten, während die .env gepflegt wird.
+    # Ohne Angabe `latest`: der Server folgt damit jedem Release, und der Timer
+    # aus guardian-update.timer holt es ab. Eine feste Version in GUARDIAN_VERSION
+    # friert den Stand ein — darin liegt der Ausstieg aus dem Auto-Update und der
+    # Rückweg nach einem schlechten Release, weil `pull` dann immer denselben
+    # Digest holt (siehe README.md, „Automatische Updates").
     #
     # Dieser Wert wählt nur den Tag. Welche Version tatsächlich läuft, sagt der
     # Server selbst (Startzeile im Log und /health) — sie steckt als
-    # GUARDIAN_BUILD_VERSION im Image. Das ist der Unterschied, der bei
-    # `GUARDIAN_VERSION=latest` zählt: der Tag sagt dann nichts über den Stand.
-    image: ghcr.io/jocur/mira-guardian-server:${GUARDIAN_VERSION:?in der .env setzen, siehe .env.example}
+    # GUARDIAN_BUILD_VERSION im Image. Bei `latest` ist das der einzige
+    # verlässliche Weg: der Tag sagt dann nichts über den Stand.
+    image: ghcr.io/jocur/mira-guardian-server:${GUARDIAN_VERSION:-latest}
     container_name: mira-guardian-server
     restart: unless-stopped
 
