@@ -1,0 +1,22 @@
+[Unit]
+Description=Stündlich nach einer neuen Guardian-Server-Version sehen
+Documentation=https://github.com/joCur/mira-guardian/blob/main/deploy/README.md
+
+[Timer]
+# Stündlich: ein Release kann jederzeit entstehen, und das Widget sieht seinerseits
+# alle sechs Stunden nach Updates. Seltener zu prüfen hieße, dass der Server den
+# Widgets dauerhaft hinterherläuft — genau die Abweichung, die vermieden werden
+# soll. Öfter zu prüfen bringt nichts, solange die Widgets im Sechs-Stunden-Takt
+# bleiben.
+OnCalendar=hourly
+
+# Nicht zur exakt selben Minute wie jeder andere Server auf die Registry gehen,
+# und den möglichen Neustart aus der vollen Stunde herausziehen.
+RandomizedDelaySec=15m
+
+# Nach einer Ausfallzeit den verpassten Lauf nachholen, statt bis zur nächsten
+# vollen Stunde zu warten.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

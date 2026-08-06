@@ -1,0 +1,17 @@
+[Unit]
+Description=Mira-Guardian-Server auf das neueste Release bringen
+Documentation=https://github.com/joCur/mira-guardian/blob/main/deploy/README.md
+
+[Service]
+Type=oneshot
+
+# %h ist das Home des Betreiberkontos: liegt das Deployment wie in der README
+# unter ~/mira-guardian, passt diese Unit auf jedem Server unverändert. Sie läuft
+# als Benutzer-Unit (systemctl --user), weil das ganze Deployment ohne root
+# auskommt und das Konto über die Gruppe `docker` schon alles darf, was hier
+# gebraucht wird.
+ExecStart=%h/mira-guardian/guardian-update.sh
+
+# Der Standardwert liegt bei 90 Sekunden und würde einen langsamen Pull oder das
+# --wait-timeout des Skripts (180 s) mitten im Update abschneiden.
+TimeoutStartSec=15min
