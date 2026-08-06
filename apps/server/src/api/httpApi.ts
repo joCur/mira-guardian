@@ -96,9 +96,14 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
 
     secured.get("/changes", async (req) => {
       const me = req.guardian!.id;
+      const ratedByMe = changeService.ratedByMe(me).map(c => withVotes(c.id)!);
       return {
         toRate: changeService.toRate(me).map(c => withVotes(c.id)!),
-        acceptedByMe: changeService.acceptedByMe(me).map(c => withVotes(c.id)!),
+        ratedByMe,
+        // Widgets von vor dieser Aufteilung lesen "acceptedByMe" und würden ohne
+        // das Feld beim Laden abbrechen. Sie zeigen die Einwände dann unter ihrer
+        // alten Überschrift — sichtbar bleibt alles.
+        acceptedByMe: ratedByMe,
         badge: changeService.badgeCount(me),
       };
     });

@@ -5,10 +5,10 @@ import type { HubEvent } from "./api/ws.js";
 import { nextSelection } from "./nextSelection.js";
 
 export interface GuardianState {
-  /** Noch nicht von mir akzeptiert — meine Arbeitsliste. */
+  /** Von mir noch nicht bewertet — meine Arbeitsliste. */
   toRate: ChangeWithVotes[];
-  /** Von mir akzeptiert, wartet auf die übrigen Hüter. */
-  acceptedByMe: ChangeWithVotes[];
+  /** Von mir bewertet, wartet auf die übrigen Hüter oder aufs Meeting. */
+  ratedByMe: ChangeWithVotes[];
   /**
    * Einzeln nachgeladene Änderung, die in keiner der beiden Listen steht, weil
    * alle Hüter sie akzeptiert haben. Der Verlauf öffnet genau solche — ohne
@@ -23,15 +23,22 @@ export interface GuardianState {
   onWsEvent: (e: HubEvent) => void;
 }
 
-type Lists = { toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[] };
-const listed = (l: Lists, id: string) => [...l.toRate, ...l.acceptedByMe].some(c => c.id === id);
+type Lists = { toRate: ChangeWithVotes[]; ratedByMe: ChangeWithVotes[] };
+const listed = (l: Lists, id: string) => [...l.toRate, ...l.ratedByMe].some(c => c.id === id);
+
+// Ein Server vor der Aufteilung kennt nur acceptedByMe. Dann fehlen dort die
+// Einwände — besser als ein Widget, das an einem fehlenden Feld hängen bleibt.
+async function holeListen(api: ApiClient) {
+  const r = await api.getChanges();
+  return { toRate: r.toRate, ratedByMe: r.ratedByMe ?? r.acceptedByMe ?? [], badge: r.badge };
+}
 
 export function createGuardianStore(api: ApiClient) {
   return createStore<GuardianState>((set, get) => ({
-    toRate: [], acceptedByMe: [], fromHistory: null, badge: 0, selectedId: null,
+    toRate: [], ratedByMe: [], fromHistory: null, badge: 0, selectedId: null,
 
     async refresh() {
-      const r = await api.getChanges();
+      const r = await holeListen(api);
       const sel = get().selectedId;
       // Steht die einzeln geladene Änderung wieder in einer Liste (jemand hat sie
       // neu bewertet), gehört sie dorthin — sonst stünde sie zweimal da.
@@ -39,8 +46,8 @@ export function createGuardianStore(api: ApiClient) {
       const fromHistory = held && !listed(r, held.id) ? held : null;
       const stillValid = sel && (listed(r, sel) || fromHistory?.id === sel);
       set({
-        toRate: r.toRate, acceptedByMe: r.acceptedByMe, badge: r.badge, fromHistory,
-        selectedId: stillValid ? sel : (r.toRate[0]?.id ?? r.acceptedByMe[0]?.id ?? null),
+        toRate: r.toRate, ratedByMe: r.ratedByMe, badge: r.badge, fromHistory,
+        selectedId: stillValid ? sel : (r.toRate[0]?.id ?? r.ratedByMe[0]?.id ?? null),
       });
     },
 
@@ -59,14 +66,14 @@ export function createGuardianStore(api: ApiClient) {
       const before = get().toRate;
       const wasFromHistory = get().fromHistory?.id === id;
       const updated = await api.vote(id, status, comment);
-      const r = await api.getChanges();
+      const r = await holeListen(api);
       // Aus dem Verlauf geöffnet: die Auswahl bleibt auf dieser Änderung, denn
       // ihretwegen ist man hier. Weiterrücken gilt nur fürs Abarbeiten der Liste.
       const next = wasFromHistory ? id : nextSelection(before, id, r.toRate);
       set({
-        toRate: r.toRate, acceptedByMe: r.acceptedByMe, badge: r.badge,
+        toRate: r.toRate, ratedByMe: r.ratedByMe, badge: r.badge,
         fromHistory: wasFromHistory ? (listed(r, id) ? null : updated) : get().fromHistory,
-        selectedId: next ?? r.acceptedByMe[0]?.id ?? null,
+        selectedId: next ?? r.ratedByMe[0]?.id ?? null,
       });
     },
 

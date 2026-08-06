@@ -20,11 +20,13 @@ function fakeApi(ids = ["c1", "c2", "c3"], over: Partial<any> = {}, alleAkzeptie
   const mine = (c: ChangeWithVotes) => c.votes.find(v => v.guardianId === "g1")?.status;
   return {
     getChanges: vi.fn(async () => {
-      // Wie der Server: was alle Hüter akzeptiert haben, verlässt beide Listen.
+      // Wie der Server: was alle Hüter akzeptiert haben, verlässt beide Listen,
+      // und was ich bewertet habe, ist nicht mehr zu bewerten.
       const all = [...changes.values()].filter(c => !fertig.has(c.id));
-      const toRate = all.filter(c => mine(c) !== "akzeptiert");
-      const acceptedByMe = all.filter(c => mine(c) === "akzeptiert");
-      return { toRate, acceptedByMe, badge: toRate.filter(c => !mine(c)).length };
+      const offen = (c: ChangeWithVotes) => (mine(c) ?? "offen") === "offen";
+      const toRate = all.filter(offen);
+      const ratedByMe = all.filter(c => !offen(c));
+      return { toRate, ratedByMe, badge: toRate.length };
     }),
     getChange: vi.fn(async (id: string) => {
       const c = changes.get(id);
@@ -47,34 +49,48 @@ describe("guardian store", () => {
     const store = createGuardianStore(fakeApi());
     await store.getState().refresh();
     expect(store.getState().toRate).toHaveLength(3);
-    expect(store.getState().acceptedByMe).toHaveLength(0);
+    expect(store.getState().ratedByMe).toHaveLength(0);
     expect(store.getState().badge).toBe(3);
     expect(store.getState().selectedId).toBe("c1");
   });
 
-  it("accepting moves the change into acceptedByMe and advances the selection", async () => {
+  it("accepting moves the change into ratedByMe and advances the selection", async () => {
     const store = createGuardianStore(fakeApi());
     await store.getState().refresh();
     store.getState().select("c2");
     await store.getState().castVote("c2", "akzeptiert", "");
 
     expect(store.getState().toRate.map(c => c.id)).toEqual(["c1", "c3"]);
-    expect(store.getState().acceptedByMe.map(c => c.id)).toEqual(["c2"]);
+    expect(store.getState().ratedByMe.map(c => c.id)).toEqual(["c2"]);
     // c2 verlässt die Liste — c3 rückt auf dessen Position nach.
     expect(store.getState().selectedId).toBe("c3");
   });
 
-  it("rejecting keeps the change in the list but still advances", async () => {
+  // Auch ein Einwand ist bewertet: er verlässt die Arbeitsliste, damit man ihn
+  // nicht ein zweites Mal vorgelegt bekommt.
+  it("rejecting moves the change out of the list as well", async () => {
     const store = createGuardianStore(fakeApi());
     await store.getState().refresh();
     store.getState().select("c1");
     await store.getState().castVote("c1", "abgelehnt", "weil");
 
-    expect(store.getState().toRate.map(c => c.id)).toEqual(["c1", "c2", "c3"]);
+    expect(store.getState().toRate.map(c => c.id)).toEqual(["c2", "c3"]);
+    expect(store.getState().ratedByMe.map(c => c.id)).toEqual(["c1"]);
+    // c1 ist weg — c2 steht jetzt auf dessen Platz und ist dran.
     expect(store.getState().selectedId).toBe("c2");
   });
 
-  it("selects the remaining accepted entry when nothing is left to rate", async () => {
+  // Ein Server vor der Aufteilung sendet nur acceptedByMe.
+  it("falls back to acceptedByMe from an older server", async () => {
+    const store = createGuardianStore(fakeApi(["c1"], {
+      getChanges: vi.fn(async () => ({ toRate: [], acceptedByMe: [ch("c1")], badge: 0 })),
+    }));
+    await store.getState().refresh();
+    expect(store.getState().ratedByMe.map(c => c.id)).toEqual(["c1"]);
+    expect(store.getState().selectedId).toBe("c1");
+  });
+
+  it("selects the remaining rated entry when nothing is left to rate", async () => {
     const store = createGuardianStore(fakeApi(["c1"]));
     await store.getState().refresh();
     await store.getState().castVote("c1", "akzeptiert", "");

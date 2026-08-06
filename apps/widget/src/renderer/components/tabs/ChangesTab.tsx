@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { ChangeWithVotes, Guardian, VoteStatus } from "@guardian/shared";
-import { fileType, STATUS_LABELS } from "@guardian/shared";
+import { fileType, STATUS_LABELS, STATUS_MARK } from "@guardian/shared";
 import { statusText, statusBorder, aggregateDot, typeBadge } from "../../theme.js";
 import { AdoLink } from "../AdoLink.js";
 import { DiffView } from "../DiffView.js";
@@ -10,7 +10,7 @@ import { FilterBar, LevelPill } from "../FilterBar.js";
 import { NO_FILTER, applyFilter, filterOptions, fundstelle, isFiltering, type Filter } from "../../filter.js";
 
 interface Props {
-  toRate: ChangeWithVotes[]; acceptedByMe: ChangeWithVotes[]; selectedId: string | null;
+  toRate: ChangeWithVotes[]; ratedByMe: ChangeWithVotes[]; selectedId: string | null;
   /** Aus dem Verlauf geöffnet und in keiner der beiden Listen — siehe store.ts. */
   fromHistory?: ChangeWithVotes | null;
   guardianId: string; guardians?: Guardian[]; onSelect: (id: string) => void;
@@ -43,6 +43,24 @@ function FundstelleZeile({ change, filter }: { change: ChangeWithVotes; filter: 
   );
 }
 
+/**
+ * Abschnittskopf der Änderungsliste, zum Auf- und Zuklappen. Die Anzahl steht
+ * daneben, damit ein zugeklappter Abschnitt trotzdem sagt, was in ihm steckt.
+ */
+function AbschnittKopf({ titel, anzahl, offen, onToggle, className = "pt-3.5" }: {
+  titel: string; anzahl: number; offen: boolean; onToggle: () => void; className?: string;
+}) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={offen} title={offen ? "Zuklappen" : "Aufklappen"}
+      className={`w-full flex items-center gap-1.5 px-3.5 pb-1.5 ${className} text-ctp-subtext0 hover:text-ctp-text transition-colors`}>
+      {/* Gedrehtes Dreieck statt zweier Zeichen: eine Drehung, kein Sprung. */}
+      <span className={`text-2xs shrink-0 transition-transform ${offen ? "rotate-90" : ""}`}>▶</span>
+      <span className="text-xs tracking-[0.08em] font-semibold">{titel}</span>
+      <span className="text-2xs font-semibold text-ctp-overlay0">{anzahl}</span>
+    </button>
+  );
+}
+
 function TypePill({ filePath, size }: { filePath: string; size: "sm" | "md" }) {
   const label = fileType(filePath).label;
   const t = typeBadge(label);
@@ -51,19 +69,26 @@ function TypePill({ filePath, size }: { filePath: string; size: "sm" | "md" }) {
   return <span className={`${cls} font-semibold tracking-wide rounded shrink-0 ${t.text} ${t.bg}`}>{label}</span>;
 }
 
+/** Klappzustand der drei Listenabschnitte. */
+interface Klapp { zuBewerten: boolean; bewertet: boolean; verlauf: boolean }
+// Offen steht nur die Arbeitsliste. Der Rest ist Nachschlagewerk und würde beim
+// Durcharbeiten bloß scrollen lassen.
+const KLAPP_START: Klapp = { zuBewerten: true, bewertet: false, verlauf: true };
+
 export function ChangesTab(p: Props) {
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
+  const [aufgeklappt, setAufgeklappt] = useState<Klapp>(KLAPP_START);
 
   // Die aus dem Verlauf geöffnete Änderung gehört mit in die Auswahl, sonst
   // landet der Fallback auf der ersten offenen Änderung — also einer anderen
   // als der angeklickten.
-  const alle = [...p.toRate, ...p.acceptedByMe, ...(p.fromHistory ? [p.fromHistory] : [])];
+  const alle = [...p.toRate, ...p.ratedByMe, ...(p.fromHistory ? [p.fromHistory] : [])];
   const optionen = filterOptions(alle, filter);
   const toRate = applyFilter(p.toRate, filter);
-  const acceptedByMe = applyFilter(p.acceptedByMe, filter);
+  const ratedByMe = applyFilter(p.ratedByMe, filter);
   // Gefiltert wird die Liste, nicht die Anzeige: eine offene Änderung bleibt
   // sichtbar, auch wenn sie gerade nicht zur Suche passt.
-  const sel = alle.find(c => c.id === p.selectedId) ?? toRate[0] ?? acceptedByMe[0] ?? p.fromHistory ?? undefined;
+  const sel = alle.find(c => c.id === p.selectedId) ?? toRate[0] ?? ratedByMe[0] ?? p.fromHistory ?? undefined;
 
   if (alle.length === 0) return (
     <EmptyState paths={ICON_SHIELD_CHECK} title="Keine offenen Änderungen">
@@ -72,8 +97,16 @@ export function ChangesTab(p: Props) {
     </EmptyState>
   );
 
-  const leer = toRate.length === 0 && acceptedByMe.length === 0;
+  const leer = toRate.length === 0 && ratedByMe.length === 0;
   const auswahl = (id: string) => p.onSelect(id);
+
+  // Eine laufende Suche schlägt den Klappzustand: Treffer zu verstecken sieht
+  // aus wie "nichts gefunden".
+  const offen = (a: keyof Klapp, treffer: number) =>
+    aufgeklappt[a] || (isFiltering(filter) && treffer > 0);
+  // Ist nichts zu bewerten, wäre die Liste sonst leer, obwohl Bewertetes da ist.
+  const bewertetOffen = offen("bewertet", ratedByMe.length) || toRate.length === 0;
+  const umschalten = (a: keyof Klapp) => setAufgeklappt({ ...aufgeklappt, [a]: !aufgeklappt[a] });
 
   return (
     <div className="flex-1 flex min-h-0">
@@ -85,8 +118,9 @@ export function ChangesTab(p: Props) {
           <FilterBar stacked placeholder="Suchen, auch im Text…" value={filter} onChange={setFilter}
             levels={optionen.levels} types={optionen.types} />
         </div>
-        {toRate.length > 0 && <div className="px-3.5 pt-3 pb-1.5 text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold">ZU BEWERTEN</div>}
-        {toRate.map(c => (
+        {toRate.length > 0 && <AbschnittKopf titel="ZU BEWERTEN" anzahl={toRate.length} className="pt-3"
+          offen={offen("zuBewerten", toRate.length)} onToggle={() => umschalten("zuBewerten")} />}
+        {offen("zuBewerten", toRate.length) && toRate.map(c => (
           <div key={c.id} onClick={() => auswahl(c.id)}
             className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
               c.id === sel?.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
@@ -103,19 +137,29 @@ export function ChangesTab(p: Props) {
             <FundstelleZeile change={c} filter={filter} />
           </div>
         ))}
-        {acceptedByMe.length > 0 && <div className="px-3.5 pt-3.5 pb-1.5 text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold">VON MIR AKZEPTIERT</div>}
-        {acceptedByMe.map(c => (
-          <div key={c.id} onClick={() => auswahl(c.id)}
-            className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
-              c.id === sel?.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
-            <div className="flex items-center gap-2 opacity-60 min-w-0">
-              <span className="text-ctp-green text-xs shrink-0">✓</span>
-              <span className="font-mono text-xs text-ctp-subtext1 truncate">{c.filePath.split("/").pop()}</span>
-              <LevelPill filePath={c.filePath} />
+        {/* Alles, wozu ich Stellung genommen habe — akzeptiert wie abgelehnt.
+            Hier steht es nur noch zum Nachsehen, bewerten muss ich es nicht
+            wieder. Erledigt ist es damit aber nicht: das Zeichen sagt, was ich
+            gesagt habe. */}
+        {ratedByMe.length > 0 && <AbschnittKopf titel="VON MIR BEWERTET" anzahl={ratedByMe.length}
+          offen={bewertetOffen} onToggle={() => umschalten("bewertet")} />}
+        {bewertetOffen && ratedByMe.map(c => {
+          const mein = c.votes.find(v => v.guardianId === p.guardianId)?.status ?? "offen";
+          return (
+            <div key={c.id} onClick={() => auswahl(c.id)}
+              className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
+                c.id === sel?.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
+              {/* Akzeptiertes darf zurücktreten; ein Einwand wartet aufs Meeting
+                  und bleibt darum voll lesbar. */}
+              <div className={`flex items-center gap-2 min-w-0 ${mein === "akzeptiert" ? "opacity-60" : ""}`}>
+                <span title={STATUS_LABELS[mein]} className={`text-xs shrink-0 ${statusText(mein)}`}>{STATUS_MARK[mein]}</span>
+                <span className="font-mono text-xs text-ctp-subtext1 truncate">{c.filePath.split("/").pop()}</span>
+                <LevelPill filePath={c.filePath} />
+              </div>
+              <FundstelleZeile change={c} filter={filter} />
             </div>
-            <FundstelleZeile change={c} filter={filter} />
-          </div>
-        ))}
+          );
+        })}
         {leer && (
           <div className="px-3.5 py-4 text-xs text-ctp-subtext0 leading-relaxed">
             Keine Änderung passt zur Suche.
@@ -126,8 +170,9 @@ export function ChangesTab(p: Props) {
             gefiltert — sie wurde gezielt aus dem Verlauf geöffnet. */}
         {p.fromHistory && (
           <>
-            <div className="px-3.5 pt-3.5 pb-1.5 text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold">AUS DEM VERLAUF</div>
-            <div onClick={() => auswahl(p.fromHistory!.id)}
+            <AbschnittKopf titel="AUS DEM VERLAUF" anzahl={1}
+              offen={aufgeklappt.verlauf} onToggle={() => umschalten("verlauf")} />
+            {aufgeklappt.verlauf && <div onClick={() => auswahl(p.fromHistory!.id)}
               className={`px-3.5 py-2 cursor-pointer border-l-2 transition-colors ${
                 p.fromHistory.id === sel?.id ? "border-ctp-teal bg-ctp-surface0/60" : "border-transparent hover:bg-ctp-surface0/40"}`}>
               <div className="flex items-center gap-2 min-w-0">
@@ -135,7 +180,7 @@ export function ChangesTab(p: Props) {
                 <span className="font-mono text-xs text-ctp-subtext1 truncate">{p.fromHistory.filePath.split("/").pop()}</span>
                 <LevelPill filePath={p.fromHistory.filePath} />
               </div>
-            </div>
+            </div>}
           </>
         )}
       </div>

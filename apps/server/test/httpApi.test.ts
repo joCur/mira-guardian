@@ -57,7 +57,7 @@ describe("HTTP API", () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.toRate).toEqual([]);
-    expect(body.acceptedByMe).toEqual([]);
+    expect(body.ratedByMe).toEqual([]);
     expect(body.badge).toBe(0);
   });
 
@@ -77,7 +77,9 @@ describe("HTTP API", () => {
 
     const lists = await ctx.app.inject({ method: "GET", url: "/changes", headers: { authorization: `Bearer ${token}` } });
     const body = JSON.parse(lists.body);
-    expect([...body.toRate, ...body.acceptedByMe]).toEqual([]);
+    expect([...body.toRate, ...body.ratedByMe]).toEqual([]);
+    // Ältere Widgets lesen acceptedByMe — das Feld muss mitkommen.
+    expect(body.acceptedByMe).toEqual([]);
 
     const single = await ctx.app.inject({ method: "GET", url: "/changes/c1", headers: { authorization: `Bearer ${token}` } });
     expect(single.statusCode).toBe(200);
