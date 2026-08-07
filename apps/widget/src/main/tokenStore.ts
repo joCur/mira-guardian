@@ -2,7 +2,7 @@ import { app } from "electron";
 import Store from "electron-store";
 import { configDir, migrateLegacyConfig } from "./configPath.js";
 
-interface Schema { token: string | null; serverUrl: string; lastSeenChangeAt: string | null }
+interface Schema { token: string | null; serverUrl: string; lastSeenChangeAt: string | null; zoomLevel: number }
 
 // Fester Ablageort statt electron-stores Standard (userData = Anzeigename der
 // App) — Begründung in configPath.ts. Vor dem Öffnen einmal aus einem
@@ -13,7 +13,7 @@ if (migratedFrom) console.log(`[guardian] Anmeldung aus ${migratedFrom} übernom
 
 const store = new Store<Schema>({
   cwd: configDir(appDataDir, app.isPackaged),
-  defaults: { token: null, serverUrl: "http://localhost:4000", lastSeenChangeAt: null },
+  defaults: { token: null, serverUrl: "http://localhost:4000", lastSeenChangeAt: null, zoomLevel: 0 },
 });
 
 export const tokenStore = {
@@ -30,4 +30,8 @@ export const tokenStore = {
     const cur = store.get("lastSeenChangeAt");
     if (!cur || iso > cur) store.set("lastSeenChangeAt", iso);
   },
+  // Die Zoomstufe des Hauptfensters überlebt den Neustart — wer die Schrift
+  // einmal größer gestellt hat, will das nicht bei jedem Öffnen wiederholen.
+  getZoomLevel(): number { return store.get("zoomLevel"); },
+  setZoomLevel(level: number) { store.set("zoomLevel", level); },
 };

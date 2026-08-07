@@ -4,6 +4,7 @@ import { STATUS_LABELS } from "@guardian/shared";
 import { statusText, statusBorder, aggregateDot } from "../../theme.js";
 import type { MeetingResponse } from "../../api/client.js";
 import { EmptyState, ICON_CIRCLE_CHECK } from "../EmptyState.js";
+import { LESESPALTE } from "../../layout.js";
 
 function worstStatus(c: ChangeWithVotes) {
   if (c.votes.some(v => v.status === "abgelehnt")) return "abgelehnt" as const;
@@ -62,7 +63,7 @@ export function MeetingTab({ meeting, guardians, onOpen }:
 
   if (changes.length === 0) return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
-      <div className="max-w-[820px] mx-auto flex flex-col items-center">
+      <div className={`${LESESPALTE} flex flex-col items-center`}>
         <EmptyState paths={ICON_CIRCLE_CHECK} title="Nichts zu besprechen">
           Keine Ablehnungen und kein Klärungsbedarf. Sobald ein Hüter eine
           Änderung ablehnt oder zur Klärung stellt, erscheint sie hier.
@@ -79,7 +80,7 @@ export function MeetingTab({ meeting, guardians, onOpen }:
 
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
-      <div className="max-w-[820px] mx-auto">
+      <div className={LESESPALTE}>
         <div className="flex items-baseline gap-3.5 flex-wrap">
           <span className="text-lg font-bold text-ctp-text">Offene Punkte</span>
           <span className="text-xs text-ctp-subtext0">{parts.join(" · ")}</span>

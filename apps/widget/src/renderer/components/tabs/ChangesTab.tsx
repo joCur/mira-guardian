@@ -8,6 +8,7 @@ import { moveLabel } from "../RenameNotice.js";
 import { EmptyState, ICON_SHIELD_CHECK } from "../EmptyState.js";
 import { FilterBar, LevelPill } from "../FilterBar.js";
 import { NO_FILTER, applyFilter, filterOptions, fundstelle, isFiltering, type Filter } from "../../filter.js";
+import { LESESPALTE, SPALTEN_PADDING } from "../../layout.js";
 
 interface Props {
   toRate: ChangeWithVotes[]; ratedByMe: ChangeWithVotes[]; selectedId: string | null;
@@ -223,7 +224,10 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      <div className="px-5 pt-3.5 pb-3 border-b border-ctp-surface0">
+      {/* Trennlinie über die volle Breite, Inhalt in der Lesespalte: so steht
+          der Pfad genau über dem Text, der zu ihm gehört. */}
+      <div className={`${SPALTEN_PADDING} pt-3.5 pb-3 border-b border-ctp-surface0`}>
+       <div className={LESESPALTE}>
         <div className="flex items-baseline gap-3 flex-wrap">
           <span className="font-mono text-sm font-semibold text-ctp-text break-all">{sel.filePath}</span>
           <TypePill filePath={sel.filePath} size="md" />
@@ -255,12 +259,13 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
             );
           })}
         </div>
+       </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="max-w-[820px] mx-auto"><DiffView change={sel} /></div>
+      <div className={`flex-1 overflow-y-auto ${SPALTEN_PADDING} py-5`}>
+        <div className={LESESPALTE}><DiffView change={sel} /></div>
         {sel.votes.some(v => v.comment) && (
-          <div className="max-w-[820px] mx-auto mt-6">
+          <div className={`${LESESPALTE} mt-6`}>
             <div className="text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold mb-2">KOMMENTARE</div>
             {sel.votes.filter(v => v.comment).map(v => (
               <div key={v.guardianId} className={`border-l-2 ${statusBorder(v.status)} pl-3 py-1.5 mb-2 bg-ctp-mantle rounded-r-lg`}>
@@ -274,7 +279,10 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
         )}
       </div>
 
-      <div className="border-t border-ctp-surface0 bg-ctp-mantle px-5 py-3">
+      {/* Auch die Knopfleiste bleibt in der Lesespalte — sonst wandern die
+          Bewertungsknöpfe auf einem breiten Schirm weit weg vom Text. */}
+      <div className={`border-t border-ctp-surface0 bg-ctp-mantle ${SPALTEN_PADDING} py-3`}>
+       <div className={LESESPALTE}>
         {meineBewertungSteht && !draft && (
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-xs text-ctp-subtext0 flex-1 whitespace-nowrap">Deine Bestätigung steht aus:</span>
@@ -312,6 +320,7 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
               className="rounded-lg px-3 py-1.5 text-xs text-ctp-subtext0 border border-ctp-surface1 hover:text-ctp-text transition-colors whitespace-nowrap">Neu bewerten</button>
           </div>
         )}
+       </div>
       </div>
     </div>
   );

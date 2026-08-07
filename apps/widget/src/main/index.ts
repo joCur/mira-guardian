@@ -4,6 +4,7 @@ import { registerIpc } from "./ipc.js";
 import { initUpdater, registerUpdaterIpc } from "./updater.js";
 import { tokenStore } from "./tokenStore.js";
 import { TRAY_ICON_16_TEMPLATE, TRAY_ICON_32_TEMPLATE, TRAY_ICON_32_LIGHT } from "./trayIcon.js";
+import { applyZoom, clampZoom, zoomCommandFor } from "./zoom.js";
 
 let win: BrowserWindow | null = null;
 let toastWin: BrowserWindow | null = null;
@@ -57,6 +58,31 @@ function ensureToastWindow(): BrowserWindow {
   return toastWin;
 }
 
+// Strg/Cmd mit Plus, Minus und Null zoomen das Hauptfenster, wie in VS Code.
+// Nur dort: Der Toast hat eine vom Main-Prozess gesetzte feste Größe, gezoomter
+// Inhalt würde aus ihm herauslaufen statt ihn wachsen zu lassen.
+//
+// `before-input-event` statt eines Menüs mit Acceleratoren: Das Fenster ist auf
+// Windows rahmenlos, ein Anwendungsmenü wäre dort unsichtbar. Der Hook greift
+// außerdem auch dann, wenn gerade ein Eingabefeld den Fokus hat.
+function registerZoom(w: BrowserWindow) {
+  const setLevel = (level: number) => {
+    w.webContents.setZoomLevel(level);
+    tokenStore.setZoomLevel(level);
+  };
+  // Chromium setzt den Zoom bei jedem Laden auf 0 zurück — die gespeicherte
+  // Stufe muss deshalb nach dem Laden kommen, nicht davor (auch nach HMR-Reloads).
+  w.webContents.on("did-finish-load", () => {
+    w.webContents.setZoomLevel(clampZoom(tokenStore.getZoomLevel()));
+  });
+  w.webContents.on("before-input-event", (e, input) => {
+    const cmd = zoomCommandFor(input as never);
+    if (!cmd) return;
+    e.preventDefault();
+    setLevel(applyZoom(w.webContents.getZoomLevel(), cmd));
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     // 1080×720 is the layout the design doc targets; the minimum keeps the
@@ -74,6 +100,7 @@ function createWindow() {
     webPreferences: { preload: join(import.meta.dirname, "../preload/index.mjs"), contextIsolation: true, sandbox: false },
   });
   guardWindowNavigation(win);
+  registerZoom(win);
   // Native close must behave like the custom ✕ (hide to tray), not destroy the
   // window — otherwise the tray's "Öffnen" points at a dead BrowserWindow.
   // app.quit() (tray "Beenden" or Cmd+Q) sets `quitting` and really exits.
