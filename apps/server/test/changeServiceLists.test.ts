@@ -90,7 +90,32 @@ describe("ChangeService — zyklusfreie Listen", () => {
     vote("c3", "g1", "klaerung");
     expect(svc.meetingChanges().map(c => c.id)).toEqual(["c2", "c3"]);
     // Der Zähler kennt die Ausstehenden weiterhin — als Hinweis fürs Team.
-    expect(svc.meetingCounts()).toEqual({ abgelehnt: 1, klaerung: 1, offen: 1, gesamt: 3 });
+    expect(svc.meetingCounts()).toEqual({ abgelehnt: 1, klaerung: 1, offen: 1, offenBeiMir: 0, gesamt: 3 });
+  });
+
+  // Der teamweite Zähler sah aus wie eine eigene Aufgabe: er bleibt stehen, bis
+  // auch die anderen Hüter bestätigt haben, während der Tab „Änderungen“ längst
+  // leer ist. offenBeiMir trennt beides.
+  it("meetingCounts separates what waits on me from what waits on the others", () => {
+    add("c1", "cy1", "docs/decisions/a.md");
+    add("c2", "cy2", "docs/decisions/b.md");
+    vote("c1", "g1", "akzeptiert");   // ich bin durch, g2 fehlt noch
+    expect(svc.toRate("g1").map(c => c.id)).toEqual(["c2"]);
+    expect(svc.meetingCounts("g1")).toMatchObject({ offen: 2, offenBeiMir: 1 });
+    // Alles von mir bewertet: der Zähler bleibt bei 2, für mich ist nichts zu tun.
+    vote("c2", "g1", "akzeptiert");
+    expect(svc.toRate("g1")).toHaveLength(0);
+    expect(svc.meetingCounts("g1")).toMatchObject({ offen: 2, offenBeiMir: 0 });
+    // Für g2 warten beide weiterhin auf ihn selbst.
+    expect(svc.meetingCounts("g2")).toMatchObject({ offen: 2, offenBeiMir: 2 });
+  });
+
+  // Ein Streitfall wartet im Meeting, nicht auf meine Bewertung — er darf den
+  // Hinweis über der Liste nicht mitzählen.
+  it("meetingCounts leaves rejected and flagged changes out of offenBeiMir", () => {
+    add("c1", "cy1", "docs/decisions/a.md");
+    vote("c1", "g2", "abgelehnt");   // ich habe noch nichts gesagt, trotzdem kein Hinweisfall
+    expect(svc.meetingCounts("g1")).toMatchObject({ abgelehnt: 1, offen: 0, offenBeiMir: 0 });
   });
 
   it("badgeCount counts my pending votes across cycles", () => {

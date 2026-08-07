@@ -11,7 +11,11 @@ export interface ChangesResponse {
   acceptedByMe?: ChangeWithVotes[];
   badge: number;
 }
-export interface MeetingCounts { abgelehnt: number; klaerung: number; offen: number; gesamt: number }
+export interface MeetingCounts {
+  abgelehnt: number; klaerung: number; offen: number; gesamt: number;
+  /** Wie viele der Ausstehenden auf *mich* warten. Ein älterer Server sagt es nicht. */
+  offenBeiMir?: number;
+}
 export interface MeetingResponse { changes: ChangeWithVotes[]; counts: MeetingCounts }
 export interface HistoryEntry {
   changeId: string; status: VoteStatus; comment: string | null; updatedAt: string;

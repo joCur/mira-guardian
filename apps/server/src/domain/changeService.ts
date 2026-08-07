@@ -67,10 +67,16 @@ export class ChangeService {
   }
 
   // Zähler für die Hüter-Übersicht: wie viele Änderungen je schlechtestem Status.
-  meetingCounts() {
+  // "offen" ist teamweit — es genügt ein Hüter, der noch nichts gesagt hat.
+  // Weil das für den Leser wie eine eigene Aufgabe aussieht, kommt "offenBeiMir"
+  // dazu: der Teil davon, der wirklich auf mich wartet. Ohne guardianId (Tests,
+  // interne Aufrufe) bleibt er 0.
+  meetingCounts(guardianId?: string) {
     const open = this.openChanges();
     const by = (s: VoteStatus) => open.filter(c => this.stripeStatus(c.id) === s).length;
-    return { abgelehnt: by("abgelehnt"), klaerung: by("klaerung"), offen: by("offen"), gesamt: open.length };
+    const offenBeiMir = guardianId === undefined ? 0 : open.filter(c =>
+      this.stripeStatus(c.id) === "offen" && (this.myStatus(c.id, guardianId) ?? "offen") === "offen").length;
+    return { abgelehnt: by("abgelehnt"), klaerung: by("klaerung"), offen: by("offen"), offenBeiMir, gesamt: open.length };
   }
 
   ensureVotesForChange(changeId: string, now: string) {

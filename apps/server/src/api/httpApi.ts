@@ -178,9 +178,9 @@ export function buildApp(deps: ApiDeps): FastifyInstance {
     });
 
     // Hüter-Übersicht: alles, was das Team noch gemeinsam durchgehen muss.
-    secured.get("/meeting", async () => ({
+    secured.get("/meeting", async (req) => ({
       changes: changeService.meetingChanges().map(c => withVotes(c.id)!),
-      counts: changeService.meetingCounts(),
+      counts: changeService.meetingCounts(req.guardian!.id),
     }));
 
     // Persönlicher Bewertungsverlauf.
