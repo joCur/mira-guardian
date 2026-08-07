@@ -32,8 +32,12 @@ export class ChangeService {
       .sort((a, b) => RANK[this.stripeStatus(b.id)] - RANK[this.stripeStatus(a.id)]);
   }
 
+  private myVote(changeId: string, guardianId: string): Vote | undefined {
+    return this.votes(changeId).find(v => v.guardianId === guardianId);
+  }
+
   private myStatus(changeId: string, guardianId: string) {
-    return this.votes(changeId).find(v => v.guardianId === guardianId)?.status;
+    return this.myVote(changeId, guardianId)?.status;
   }
 
   // Meine Arbeitsliste: nur, wozu ich noch nichts gesagt habe. Habe ich Stellung
@@ -43,12 +47,18 @@ export class ChangeService {
     return this.openChanges().filter(c => (this.myStatus(c.id, guardianId) ?? "offen") === "offen");
   }
   // Von mir bewertet, aber noch nicht durch: wartet auf die übrigen Hüter oder,
-  // bei Einwand, auf die Klärung im Meeting.
+  // bei Einwand, auf die Klärung im Meeting. Sortiert nach meiner Bewertung —
+  // zuletzt Bewertetes oben, wie im Verlauf. Die worst-first-Ordnung von
+  // openChanges() passt hier nicht: sie richtet sich nach dem Urteil der
+  // anderen und entscheidet bei Gleichstand nach dem Commit-Datum. Was ich
+  // gerade bewertet habe, lag damit irgendwo in der Liste verstreut.
   ratedByMe(guardianId: string): Change[] {
-    return this.openChanges().filter(c => {
-      const s = this.myStatus(c.id, guardianId);
-      return s !== undefined && s !== "offen";
-    });
+    return this.openChanges()
+      .map(c => ({ change: c, vote: this.myVote(c.id, guardianId) }))
+      .filter((e): e is { change: Change; vote: Vote } =>
+        e.vote !== undefined && e.vote.status !== "offen")
+      .sort((a, b) => b.vote.updatedAt.localeCompare(a.vote.updatedAt))
+      .map(e => e.change);
   }
 
   badgeCount(guardianId: string): number {

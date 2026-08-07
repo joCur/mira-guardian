@@ -64,6 +64,20 @@ describe("ChangeService — zyklusfreie Listen", () => {
     expect(svc.ratedByMe("g2")).toHaveLength(0);
   });
 
+  // Nicht worst-first wie die Arbeitsliste: hier zählt, wann ich Stellung
+  // genommen habe. Sonst wirkt die Reihenfolge beliebig, weil das Urteil der
+  // anderen und das Commit-Datum sie bestimmen.
+  it("ratedByMe sorts by when I rated, newest first", () => {
+    add("c1", "cy1", "docs/decisions/a.md");
+    add("c2", "cy2", "docs/decisions/b.md");
+    add("c3", "cy1", "docs/decisions/c.md");
+    // Umgekehrte Reihenfolge zu worst-first: c1 wäre dort wegen "abgelehnt" oben.
+    s.upsertVote({ changeId: "c1", guardianId: "g1", status: "abgelehnt", comment: "nein", updatedAt: "2026-07-20T10:00:00Z" });
+    s.upsertVote({ changeId: "c2", guardianId: "g1", status: "akzeptiert", comment: null, updatedAt: "2026-07-22T10:00:00Z" });
+    s.upsertVote({ changeId: "c3", guardianId: "g1", status: "klaerung", comment: "hm", updatedAt: "2026-07-21T10:00:00Z" });
+    expect(svc.ratedByMe("g1").map(c => c.id)).toEqual(["c2", "c3", "c1"]);
+  });
+
   // "Neu bewerten" holt die Änderung zurück in die Arbeitsliste.
   it("toRate takes a change back once I reset my vote to pending", () => {
     add("c1", "cy1", "docs/decisions/a.md");
