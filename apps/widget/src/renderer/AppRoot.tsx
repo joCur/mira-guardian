@@ -15,6 +15,8 @@ import { ChangesTab } from "./components/tabs/ChangesTab.js";
 import { MeetingTab } from "./components/tabs/MeetingTab.js";
 import { HistoryTab } from "./components/tabs/HistoryTab.js";
 import { GuardiansTab } from "./components/tabs/GuardiansTab.js";
+import { useLesezoom } from "./useLesezoom.js";
+import { ZoomBadge } from "./components/ZoomBadge.js";
 
 // AppRoot only loads config and decides setup-vs-linked. It must NOT create the
 // store or call useStore, because the store only exists once a token is present —
@@ -55,6 +57,8 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   const update = useUpdateStatus();
   const [appVersion, setAppVersion] = useState("");
   useEffect(() => { void window.guardian.getAppVersion().then(setAppVersion).catch(() => {}); }, []);
+  // Strg/Cmd +/- vergrößert den Lesebereich; die Bedienelemente bleiben.
+  const zoom = useLesezoom();
 
   useEffect(() => {
     let alive = true;
@@ -111,9 +115,12 @@ function LinkedApp({ serverUrl, token, onSignOut }: { serverUrl: string; token: 
   return (
     <ApiProvider api={api}>
     <MainWindow tab={tab} onTab={setTab} onClose={() => void window.guardian.hideWindow()}
-      titleBarExtra={<UpdateBadge status={update} currentVersion={appVersion}
-        onInstall={() => void window.guardian.installUpdate()}
-        onOpenNotes={(url) => void window.guardian.openExternal(url)} />}>
+      titleBarExtra={<>
+        <ZoomBadge zoom={zoom} />
+        <UpdateBadge status={update} currentVersion={appVersion}
+          onInstall={() => void window.guardian.installUpdate()}
+          onOpenNotes={(url) => void window.guardian.openExternal(url)} />
+      </>}>
       {tab === "changes" && <ChangesTab toRate={state.toRate} ratedByMe={state.ratedByMe} selectedId={state.selectedId}
         fromHistory={state.fromHistory}
         guardianId={guardianId} guardians={guardians} onSelect={(id) => void store.getState().select(id)}

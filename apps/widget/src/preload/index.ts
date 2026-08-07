@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("guardian", {
   setToken: (token: string) => ipcRenderer.invoke("guardian:setToken", token),
   clearToken: () => ipcRenderer.invoke("guardian:clearToken"),
   setServerUrl: (url: string) => ipcRenderer.invoke("guardian:setServerUrl", url),
+  getZoomLevel: () => ipcRenderer.invoke("guardian:getZoomLevel"),
+  setZoomLevel: (level: number) => ipcRenderer.invoke("guardian:setZoomLevel", level),
   getLastSeenChange: () => ipcRenderer.invoke("guardian:getLastSeenChange"),
   bumpLastSeenChange: (iso: string) => ipcRenderer.invoke("guardian:bumpLastSeenChange", iso),
   showToast: (data: unknown) => ipcRenderer.invoke("guardian:showToast", data),

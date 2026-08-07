@@ -30,7 +30,10 @@ export function HistoryTab({ entries, onOpen }:
   const gefiltert = isFiltering(filter);
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6">
+    // Hier zoomt der ganze Inhalt, anders als im Änderungen-Tab: Diese Seite
+    // ist eine Übersicht ohne Fließtext, und ein Zoom, der nur die Einträge
+    // aufbläst, lässt Überschrift und Suchfeld winzig zurück.
+    <div className="lesezoom flex-1 overflow-y-auto px-8 py-6">
       <div className={LESESPALTE}>
         <div className="flex items-baseline gap-3.5 mb-3">
           <span className="text-lg font-bold text-ctp-text">Meine Bewertungen</span>

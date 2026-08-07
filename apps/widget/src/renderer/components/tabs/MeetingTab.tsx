@@ -62,7 +62,7 @@ export function MeetingTab({ meeting, guardians, onOpen }:
   );
 
   if (changes.length === 0) return (
-    <div className="flex-1 overflow-y-auto px-8 py-6">
+    <div className="lesezoom flex-1 overflow-y-auto px-8 py-6">
       <div className={`${LESESPALTE} flex flex-col items-center`}>
         <EmptyState paths={ICON_CIRCLE_CHECK} title="Nichts zu besprechen">
           Keine Ablehnungen und kein Klärungsbedarf. Sobald ein Hüter eine
@@ -79,7 +79,11 @@ export function MeetingTab({ meeting, guardians, onOpen }:
   ].filter(Boolean) as string[];
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6">
+    // Hier zoomt der ganze Inhalt, anders als im Änderungen-Tab: Diese Seite
+    // ist eine Übersicht ohne Fließtext, und ein Zoom, der nur die Karten
+    // aufbläst, lässt die Überschrift darüber winzig zurück — der Bruch fällt
+    // stärker auf als der Gewinn.
+    <div className="lesezoom flex-1 overflow-y-auto px-8 py-6">
       <div className={LESESPALTE}>
         <div className="flex items-baseline gap-3.5 flex-wrap">
           <span className="text-lg font-bold text-ctp-text">Offene Punkte</span>

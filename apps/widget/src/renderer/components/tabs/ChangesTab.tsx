@@ -262,7 +262,7 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
        </div>
       </div>
 
-      <div className={`flex-1 overflow-y-auto ${SPALTEN_PADDING} py-5`}>
+      <div className={`lesezoom flex-1 overflow-y-auto ${SPALTEN_PADDING} py-5`}>
         <div className={LESESPALTE}><DiffView change={sel} /></div>
         {sel.votes.some(v => v.comment) && (
           <div className={`${LESESPALTE} mt-6`}>
