@@ -50,6 +50,7 @@ docker compose logs -f               # Log verfolgen
 docker compose restart
 docker compose down                  # Stoppen; Daten unter ./data bleiben
 curl -s localhost:4000/health        # erwartet {"ok":true}
+tail -n 20 update.log                # letzte Läufe des Update-Timers
 ```
 
 Der Container startet nach Reboot und Absturz automatisch neu
@@ -120,7 +121,7 @@ Einmal von Hand nachsehen, ob der Weg steht:
 
 ```bash
 systemctl --user start guardian-update.service      # jetzt ausführen
-journalctl --user -u guardian-update -n 20          # was dabei herauskam
+tail -n 20 update.log                               # was dabei herauskam
 systemctl --user list-timers guardian-update.timer  # wann der nächste Lauf ist
 ```
 
@@ -132,17 +133,25 @@ weiter. Sonst wird der Container ersetzt, und der Lauf wartet den Healthcheck au
 der `docker-compose.yml` ab. Zum Schluss werden ungetaggte Images abgeräumt, die
 älter als ein Tag sind.
 
-Im Journal steht danach eine Zeile pro Lauf — entweder
-`Keine neue Version, X läuft weiter.` oder `Aktualisiert: X -> Y`.
+In `update.log` neben der `docker-compose.yml` steht danach eine Zeile pro Lauf,
+mit Zeitstempel — entweder `Keine neue Version, X läuft weiter.` oder
+`Aktualisiert: X -> Y`. Das Skript kürzt die Datei selbst, sobald sie über 500
+Zeilen wächst.
+
+Warum eine Datei und nicht nur das Journal: für Konten aus einer Domäne legt
+systemd-journald kein eigenes Benutzer-Journal an. Die Ausgaben der Unit landen
+dann im System-Journal, das ein Konto ohne Gruppe `adm` oder `systemd-journal`
+nicht öffnen darf — `journalctl --user -u guardian-update` findet in diesem Fall
+nichts. Wo das Journal lesbar ist, steht alles doppelt.
 
 ### Wenn ein Release den Server nicht gesund werden lässt
 
-Dann endet `up -d --wait` mit einem Fehler, die Unit steht auf `failed`, und im
-Journal steht der Hinweis samt vorheriger Version:
+Dann endet `up -d --wait` mit einem Fehler, die Unit steht auf `failed`, und in
+`update.log` steht der Hinweis samt vorheriger Version:
 
 ```bash
-systemctl --user list-units --failed
-journalctl --user -u guardian-update -n 30
+systemctl --user list-units --failed    # der Alarm, unabhängig vom Journal
+grep FEHLER update.log | tail           # die Begründung
 ```
 
 Zurückgerollt wird nicht automatisch. Das ist Absicht: ein Automatismus, der
@@ -166,6 +175,11 @@ wert bleibt.
 systemctl --user edit guardian-update.timer          # OnCalendar= überschreiben
 systemctl --user disable --now guardian-update.timer
 ```
+
+`systemctl edit` legt einen Drop-in an, der die Unit aus `deploy/` unangetastet
+lässt — eine Abweichung überlebt damit das nächste Kopieren. `OnCalendar=` ist
+dabei eine Liste: ohne eine leere Zeile `OnCalendar=` davor kommt der neue Wert
+zum alten dazu, statt ihn zu ersetzen, und der Timer feuert nach beiden Angaben.
 
 Stündlich ist auf das Widget abgestimmt, das alle sechs Stunden nach Updates
 sieht. Ein Fenster mit unterschiedlichen Versionen bleibt damit möglich; das
