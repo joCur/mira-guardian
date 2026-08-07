@@ -2,7 +2,7 @@ import React from "react";
 import type { ChangeWithVotes, Guardian } from "@guardian/shared";
 import { STATUS_LABELS } from "@guardian/shared";
 import { statusText, statusBorder, aggregateDot } from "../../theme.js";
-import type { MeetingResponse } from "../../api/client.js";
+import type { MeetingCounts, MeetingResponse } from "../../api/client.js";
 import { EmptyState, ICON_CIRCLE_CHECK } from "../EmptyState.js";
 
 function worstStatus(c: ChangeWithVotes) {
@@ -47,6 +47,18 @@ function Card({ c, onOpen, byId }:
   );
 }
 
+// Der Zähler ist teamweit, der Tab „Änderungen" zeigt nur meine Arbeitsliste.
+// Ohne diesen Unterschied schickt der Hinweis in einen leeren Tab, sobald ich
+// selbst durch bin und nur die anderen Hüter noch fehlen.
+function hinweisText({ offen, offenBeiMir }: MeetingCounts): string {
+  const wartet = `${offen} ${offen === 1 ? "Änderung wartet" : "Änderungen warten"} noch`;
+  const dort = 'im Tab „Änderungen" zu finden';
+  if (offenBeiMir === undefined) return `${wartet} auf Bestätigungen — ${dort}`;
+  if (offenBeiMir === 0) return `${wartet} auf die Bestätigung anderer Hüter — von dir ist alles bewertet`;
+  if (offenBeiMir === offen) return `${wartet} auf deine Bestätigung — ${dort}`;
+  return `${wartet} auf Bestätigungen, ${offenBeiMir} davon auf deine — ${dort}`;
+}
+
 export function MeetingTab({ meeting, guardians, onOpen }:
   { meeting: MeetingResponse; guardians?: Guardian[]; onOpen: (id: string) => void }) {
   const byId = new Map((guardians ?? []).map(g => [g.id, g]));
@@ -56,7 +68,7 @@ export function MeetingTab({ meeting, guardians, onOpen }:
   // sie stehen als Hinweis über der Liste statt darin.
   const pendingHint = counts.offen > 0 && (
     <div className="text-xs text-ctp-subtext1 bg-ctp-surface0/50 border border-ctp-surface1 rounded-lg px-3 py-2 inline-flex w-fit">
-      ⏳ {counts.offen} {counts.offen === 1 ? "Änderung wartet" : "Änderungen warten"} noch auf Bestätigungen — im Tab „Änderungen" zu finden
+      ⏳ {hinweisText(counts)}
     </div>
   );
 

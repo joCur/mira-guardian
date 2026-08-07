@@ -30,10 +30,38 @@ describe("MeetingTab", () => {
 
   it("reports pending confirmations as a hint, not as list entries", () => {
     // 102 ausstehende Bewertungen dürfen die Liste nicht überschwemmen.
+    // Ohne offenBeiMir — ein Server vor dem Feld — bleibt der alte Wortlaut.
     const m = meeting([], { offen: 102, gesamt: 102 });
     render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
     expect(screen.getByText(/102 Änderungen warten noch auf Bestätigungen/)).toBeTruthy();
     expect(screen.getByText("Nichts zu besprechen")).toBeTruthy();
+  });
+
+  // Habe ich alles bewertet, schickt ein Verweis auf den Tab „Änderungen“ ins
+  // Leere — dort steht nur meine eigene Arbeitsliste.
+  it("names the others when everything of mine is rated", () => {
+    const m = meeting([], { offen: 12, offenBeiMir: 0, gesamt: 12 });
+    render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
+    expect(screen.getByText(/12 Änderungen warten noch auf die Bestätigung anderer Hüter/)).toBeTruthy();
+    expect(screen.queryByText(/im Tab/)).toBeNull();
+  });
+
+  it("asks for my confirmation when all pending ones wait on me", () => {
+    const m = meeting([], { offen: 4, offenBeiMir: 4, gesamt: 4 });
+    render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
+    expect(screen.getByText(/4 Änderungen warten noch auf deine Bestätigung — im Tab/)).toBeTruthy();
+  });
+
+  it("splits the count when only some pending ones wait on me", () => {
+    const m = meeting([], { offen: 12, offenBeiMir: 3, gesamt: 12 });
+    render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
+    expect(screen.getByText(/12 Änderungen warten noch auf Bestätigungen, 3 davon auf deine/)).toBeTruthy();
+  });
+
+  it("keeps the singular when a single change waits on me", () => {
+    const m = meeting([], { offen: 1, offenBeiMir: 1, gesamt: 1 });
+    render(<MeetingTab meeting={m} guardians={guardians} onOpen={vi.fn()} />);
+    expect(screen.getByText(/1 Änderung wartet noch auf deine Bestätigung/)).toBeTruthy();
   });
 
   it("shows the pending hint alongside real discussion items", () => {
