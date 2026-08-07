@@ -176,6 +176,11 @@ systemctl --user edit guardian-update.timer          # OnCalendar= überschreibe
 systemctl --user disable --now guardian-update.timer
 ```
 
+`systemctl edit` legt einen Drop-in an, der die Unit aus `deploy/` unangetastet
+lässt — eine Abweichung überlebt damit das nächste Kopieren. `OnCalendar=` ist
+dabei eine Liste: ohne eine leere Zeile `OnCalendar=` davor kommt der neue Wert
+zum alten dazu, statt ihn zu ersetzen, und der Timer feuert nach beiden Angaben.
+
 Stündlich ist auf das Widget abgestimmt, das alle sechs Stunden nach Updates
 sieht. Ein Fenster mit unterschiedlichen Versionen bleibt damit möglich; das
 Widget weist im Hüter-Tab darauf hin. Wer Neustarts aus der Arbeitszeit
