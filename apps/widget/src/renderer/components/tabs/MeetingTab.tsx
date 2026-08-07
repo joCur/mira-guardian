@@ -4,6 +4,7 @@ import { STATUS_LABELS } from "@guardian/shared";
 import { statusText, statusBorder, aggregateDot } from "../../theme.js";
 import type { MeetingCounts, MeetingResponse } from "../../api/client.js";
 import { EmptyState, ICON_CIRCLE_CHECK } from "../EmptyState.js";
+import { LESESPALTE } from "../../layout.js";
 
 function worstStatus(c: ChangeWithVotes) {
   if (c.votes.some(v => v.status === "abgelehnt")) return "abgelehnt" as const;
@@ -73,8 +74,8 @@ export function MeetingTab({ meeting, guardians, onOpen }:
   );
 
   if (changes.length === 0) return (
-    <div className="flex-1 overflow-y-auto px-8 py-6">
-      <div className="max-w-[820px] mx-auto flex flex-col items-center">
+    <div className="lesezoom flex-1 overflow-y-auto px-8 py-6">
+      <div className={`${LESESPALTE} flex flex-col items-center`}>
         <EmptyState paths={ICON_CIRCLE_CHECK} title="Nichts zu besprechen">
           Keine Ablehnungen und kein Klärungsbedarf. Sobald ein Hüter eine
           Änderung ablehnt oder zur Klärung stellt, erscheint sie hier.
@@ -90,8 +91,12 @@ export function MeetingTab({ meeting, guardians, onOpen }:
   ].filter(Boolean) as string[];
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6">
-      <div className="max-w-[820px] mx-auto">
+    // Hier zoomt der ganze Inhalt, anders als im Änderungen-Tab: Diese Seite
+    // ist eine Übersicht ohne Fließtext, und ein Zoom, der nur die Karten
+    // aufbläst, lässt die Überschrift darüber winzig zurück — der Bruch fällt
+    // stärker auf als der Gewinn.
+    <div className="lesezoom flex-1 overflow-y-auto px-8 py-6">
+      <div className={LESESPALTE}>
         <div className="flex items-baseline gap-3.5 flex-wrap">
           <span className="text-lg font-bold text-ctp-text">Offene Punkte</span>
           <span className="text-xs text-ctp-subtext0">{parts.join(" · ")}</span>

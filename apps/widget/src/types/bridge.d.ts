@@ -16,6 +16,9 @@ export interface GuardianBridge {
   setToken(token: string): Promise<void>;
   clearToken(): Promise<void>;
   setServerUrl(url: string): Promise<void>;
+  /** Zoomstufe des Lesebereichs — Stufe 0 ist die unveränderte Größe. */
+  getZoomLevel(): Promise<number>;
+  setZoomLevel(level: number): Promise<void>;
   getLastSeenChange(): Promise<string | null>;
   bumpLastSeenChange(iso: string): Promise<void>;
   showToast(data: ToastData): Promise<void>;

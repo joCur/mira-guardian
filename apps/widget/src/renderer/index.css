@@ -11,4 +11,10 @@
 @layer utilities {
   @keyframes toast-in { from { opacity: 0; transform: translateX(120%); } to { opacity: 1; transform: none; } }
   .animate-toast-in { animation: toast-in 0.3s cubic-bezier(0.2, 0.8, 0.3, 1); }
+
+  /* Strg/Cmd +/- skaliert nur die so ausgezeichneten Lesebereiche, nicht die
+     Bedienelemente ringsherum — siehe useLesezoom.ts. `zoom` statt
+     `transform: scale`, weil nur das einen echten Reflow auslöst: Der Text
+     bricht auf der neuen Breite um, statt vergrößert überzulaufen. */
+  .lesezoom { zoom: var(--lesezoom, 1); }
 }

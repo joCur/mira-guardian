@@ -14,6 +14,10 @@ export function registerIpc() {
   ipcMain.handle("guardian:setToken", (_e, token: string) => tokenStore.setToken(token));
   ipcMain.handle("guardian:clearToken", () => tokenStore.clearToken());
   ipcMain.handle("guardian:setServerUrl", (_e, url: string) => tokenStore.setServerUrl(url));
+  // Zoomstufe des Lesebereichs — der Renderer wendet sie an, gespeichert wird
+  // sie hier, damit sie den Neustart überlebt.
+  ipcMain.handle("guardian:getZoomLevel", () => tokenStore.getZoomLevel());
+  ipcMain.handle("guardian:setZoomLevel", (_e, level: number) => tokenStore.setZoomLevel(level));
   ipcMain.handle("guardian:getLastSeenChange", () => tokenStore.getLastSeenChange());
   ipcMain.handle("guardian:bumpLastSeenChange", (_e, iso: string) => tokenStore.bumpLastSeenChange(iso));
   ipcMain.handle("guardian:openExternal", (_e, url: string) => {

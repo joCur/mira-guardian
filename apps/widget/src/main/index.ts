@@ -74,6 +74,12 @@ function createWindow() {
     webPreferences: { preload: join(import.meta.dirname, "../preload/index.mjs"), contextIsolation: true, sandbox: false },
   });
   guardWindowNavigation(win);
+  // Chromium merkt sich den Fenster-Zoom pro Origin in der Session. Gezoomt
+  // wird hier aber nur der Lesebereich (siehe renderer/useLesezoom.ts) — ein
+  // aus einer früheren Fassung übrig gebliebener Fensterzoom würde die
+  // Oberfläche sonst dauerhaft mitskalieren, ohne dass sie ihn zurücksetzen
+  // könnte.
+  win.webContents.on("did-finish-load", () => { win?.webContents.setZoomLevel(0); });
   // Native close must behave like the custom ✕ (hide to tray), not destroy the
   // window — otherwise the tray's "Öffnen" points at a dead BrowserWindow.
   // app.quit() (tray "Beenden" or Cmd+Q) sets `quitting` and really exits.
