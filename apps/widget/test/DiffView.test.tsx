@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { DiffView } from "../src/renderer/components/DiffView.js";
 import type { ChangeWithVotes } from "@guardian/shared";
 
 function change(over: Partial<ChangeWithVotes>): ChangeWithVotes {
   return { id: "c", repo: "r", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
     commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
-    summary: "s", oldMd: "Node 20 base", newMd: "Node 22 base", previousPath: null, baselineCommitId: null,
+    summary: "s", oldMd: "Node 20 base", newMd: "Node 22 base", previousPath: null, baselineCommitId: null, previousNewMd: null, commitCount: 1,
     cycleId: "cy", firstSeenAt: "t", votes: [], adoLink: "http://x", ...over };
 }
 
@@ -129,5 +129,68 @@ describe("DiffView bei Umbenennung und Verschiebung", () => {
   it("hält sich raus, wenn nichts verschoben wurde", () => {
     const { container } = render(<DiffView change={change({})} />);
     expect(container.textContent).not.toMatch(/Verschoben|Umbenannt/);
+  });
+});
+
+// Sammelt ein Eintrag mehrere Commits, wächst der Diff mit jeder Runde. Ohne
+// Umschalter müsste ein Hüter, der die vorigen Runden längst gelesen hat, sie
+// erneut durchgehen, um das Neue zu finden.
+describe("DiffView bei mehreren Commits", () => {
+  // Runde 1 übersetzte den Absatz, Runde 2 hängte einen Nachtrag an. Geprüft
+  // wird auf einzelne Wörter: der Zeilenvergleich mischt Alt und Neu ineinander,
+  // ganze Sätze stehen danach nicht mehr am Stück da.
+  const gestaffelt = (over: Partial<ChangeWithVotes> = {}) => change({
+    oldMd: "Deutscher Absatz", previousNewMd: "English paragraph",
+    newMd: "English paragraph mit Nachtrag", commitCount: 2, ...over });
+
+  it("bietet den Umschalter erst ab dem zweiten Commit an", () => {
+    const einer = render(<DiffView change={change({})} />);
+    expect(einer.queryByRole("group", { name: /Umfang/ })).toBeNull();
+    einer.unmount();
+    render(<DiffView change={gestaffelt()} />);
+    expect(screen.getByRole("group", { name: /Umfang/ })).toBeTruthy();
+    expect(screen.getByText(/Fasst 2 Commits zusammen/)).toBeTruthy();
+  });
+
+  // Bestandsdaten: Der Zähler steht schon auf zwei, der Stand davor fehlt aber.
+  // Dann gibt es nichts umzuschalten — ein Schalter ins Leere wäre schlimmer
+  // als keiner.
+  it("hält sich raus, wenn der Stand vor dem letzten Commit fehlt", () => {
+    render(<DiffView change={gestaffelt({ previousNewMd: null })} />);
+    expect(screen.queryByRole("group", { name: /Umfang/ })).toBeNull();
+  });
+
+  it("zeigt standardmäßig alles seit der Basis", () => {
+    const { container } = render(<DiffView change={gestaffelt()} />);
+    expect(container.textContent).toContain("Deutscher");
+  });
+
+  it("zeigt auf Wunsch nur den jüngsten Commit — und wieder zurück", () => {
+    const { container } = render(<DiffView change={gestaffelt()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Nur letzter Commit/ }));
+    // Der Stand vor dem jüngsten Commit ist jetzt die Vergleichsseite; die
+    // Übersetzung aus der Runde davor steht nicht mehr im Weg.
+    expect(container.textContent).not.toContain("Deutscher");
+    expect(container.textContent).toContain("Nachtrag");
+
+    fireEvent.click(screen.getByRole("button", { name: /Alles seit Basis/ }));
+    expect(container.textContent).toContain("Deutscher");
+  });
+
+  // Die gemeinsame Grundlage ist der ganze Diff — sonst reden im Meeting zwei
+  // Hüter über verschiedene Stände.
+  it("sagt dazu, dass die Bewertung der ganzen Änderung gilt", () => {
+    render(<DiffView change={gestaffelt()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Nur letzter Commit/ }));
+    expect(screen.getByText(/bewertet wird die Änderung als Ganzes/)).toBeTruthy();
+  });
+
+  // Ohne Vergleichsbasis fehlt sie nur im Gesamtdiff. Im Ausschnitt wird gar
+  // nicht gegen sie verglichen, da wäre der Hinweis schlicht falsch.
+  it("verschweigt die fehlende Basis im Ausschnitt", () => {
+    render(<DiffView change={gestaffelt({ oldMd: null })} />);
+    expect(screen.getByText(/Vergleichsstand fehlt/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Nur letzter Commit/ }));
+    expect(screen.queryByText(/Vergleichsstand fehlt/)).toBeNull();
   });
 });

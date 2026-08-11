@@ -263,7 +263,9 @@ function Detail({ sel, guardianId, guardians, ausDemVerlauf, onVote }: {
       </div>
 
       <div className={`lesezoom flex-1 overflow-y-auto ${SPALTEN_PADDING} py-5`}>
-        <div className={LESESPALTE}><DiffView change={sel} /></div>
+        {/* key: Der Umschalter für den Diff-Umfang gehört zur Änderung, nicht
+            zum Fenster — bei der nächsten fängt er wieder beim Gesamtdiff an. */}
+        <div className={LESESPALTE}><DiffView key={sel.id} change={sel} /></div>
         {sel.votes.some(v => v.comment) && (
           <div className={`${LESESPALTE} mt-6`}>
             <div className="text-xs tracking-[0.08em] text-ctp-subtext0 font-semibold mb-2">KOMMENTARE</div>

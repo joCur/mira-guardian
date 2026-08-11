@@ -200,6 +200,12 @@ export class AdoPoller {
           // nicht auf den jüngsten Zwischenstand verkürzt — und rückt mit ihm
           // nach, sobald der Vorgang abgeschlossen war.
           baselineCommitId: (fortgesetzt ? existing.baselineCommitId : null) ?? commit.commitId,
+          // Der Stand vor diesem Commit. Er kostet Platz, ist aber das
+          // Einzige, womit sich der jüngste Commit für sich allein zeigen
+          // lässt — die gemeinsame Basis darf dafür nicht wandern, sonst
+          // sähen zwei Hüter verschiedene Diffs und redeten aneinander vorbei.
+          previousNewMd: fortgesetzt ? existing.newMd : null,
+          commitCount: fortgesetzt ? existing.commitCount + 1 : 1,
           cycleId: cycle.id,
           // Ebenfalls neu beim abgeschlossenen Vorgang: sonst bliebe die neue
           // Änderung hinter der Wasserlinie des Catch-ups zurück und die Hüter

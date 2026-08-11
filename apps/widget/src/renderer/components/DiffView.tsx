@@ -6,6 +6,7 @@ import { FrontmatterCard } from "./FrontmatterCard.js";
 import { MarkdownBlock } from "./MarkdownBlock.js";
 import { RenameNotice } from "./RenameNotice.js";
 import { BaselineNotice } from "./BaselineNotice.js";
+import { DiffUmfang } from "./DiffUmfang.js";
 import { BildVergleich } from "./BildVergleich.js";
 import { BildseiteProvider } from "../bild/kontext.js";
 
@@ -45,12 +46,21 @@ function DokumentDiff({ change }: { change: ChangeWithVotes }) {
   // Blob-Id in ADO). Ihn als "alles neu" zu zeigen wäre falsch — er wird
   // unmarkiert dargestellt, damit man nachlesen kann, worum es geht.
   const nurVerschoben = change.changeKind === "rename";
-  const isNew = !nurVerschoben && !change.oldMd?.trim();
+  // Sammelt der Eintrag mehrere Commits, lässt sich der jüngste für sich
+  // zeigen — aber nur, wenn der Stand davor auch festgehalten wurde. Bei
+  // Einträgen aus der Zeit davor fehlt er, dann bleibt es beim Gesamtdiff.
+  const [nurLetzter, setNurLetzter] = React.useState(false);
+  const gestaffelt = !nurVerschoben && change.commitCount > 1 && change.previousNewMd !== null;
+  const zeigeLetzten = gestaffelt && nurLetzter;
+  const basisMd = zeigeLetzten ? change.previousNewMd : change.oldMd;
+  const isNew = !nurVerschoben && !basisMd?.trim();
   // Neu angelegt heißt: es gibt keinen Vorgängerstand. Bei allem anderen müsste
   // einer da sein — fehlt er, ist der unmarkierte Text kein "alles neu",
-  // sondern eine Lücke, die benannt werden muss.
-  const basisFehlt = isNew && change.changeKind !== "add";
-  const oldSplit = splitFrontmatter(change.oldMd ?? "");
+  // sondern eine Lücke, die benannt werden muss. In der Ausschnittsansicht ist
+  // die fehlende Basis dagegen kein Thema: dort wird gar nicht gegen sie
+  // verglichen.
+  const basisFehlt = !zeigeLetzten && isNew && change.changeKind !== "add";
+  const oldSplit = splitFrontmatter(basisMd ?? "");
   const newSplit = splitFrontmatter(change.newMd ?? "");
   const oldFm = parseFm(oldSplit.fm);
   const newFm = parseFm(newSplit.fm);
@@ -67,6 +77,9 @@ function DokumentDiff({ change }: { change: ChangeWithVotes }) {
         <RenameNotice previousPath={change.previousPath} filePath={change.filePath} changeKind={change.changeKind} />
       )}
       {basisFehlt && <BaselineNotice changeKind={change.changeKind} adoLink={change.adoLink} />}
+      {gestaffelt && (
+        <DiffUmfang commitCount={change.commitCount} nurLetzter={nurLetzter} onChange={setNurLetzter} />
+      )}
       <FrontmatterCard fields={fields} />
       {fmBroken && <MarkdownBlock md={"```yaml\n" + newSplit.fm + "\n```"} />}
       {blocks.map(wrap(change.id))}

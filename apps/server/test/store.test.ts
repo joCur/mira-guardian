@@ -12,7 +12,7 @@ const change: Change = {
   id: "ch1", repo: "r", branch: "main", filePath: "docs/decisions/adr-013.md",
   changeKind: "add", commitId: "abc123", commitShort: "abc123",
   authorName: "Anna", authorEmail: "a@x.de", committedAt: "2026-07-19T10:00:00Z",
-  summary: "Neue Decision", oldMd: null, newMd: "# ADR", previousPath: null, baselineCommitId: null, cycleId: "cy1",
+  summary: "Neue Decision", oldMd: null, newMd: "# ADR", previousPath: null, baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: "cy1",
   firstSeenAt: "2026-07-19T10:00:00Z",
 };
 
@@ -113,6 +113,35 @@ describe("Store-Migration auf eine bestehende Datenbank", () => {
       previousPath: "memory-bank/a.md", changeKind: "rename" })).not.toThrow();
     expect(s.getChange("alt1")?.previousPath).toBe("memory-bank/a.md");
     // Zweiter Start darf nicht an der schon vorhandenen Spalte scheitern.
+    expect(() => new Store(file)).not.toThrow();
+    rmSync(dirname(file), { recursive: true, force: true });
+  });
+
+  // Bestandsdaten fassen womöglich schon mehrere Commits zusammen, ihr
+  // Zwischenstand ist aber nicht mehr da. Sie starten deshalb als
+  // Ein-Commit-Eintrag statt mit einer Zahl, die keiner Anzeige entspricht.
+  it("zählt Einträge ohne Commit-Zähler als einen Commit", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "guardian-store-")), "alt.sqlite");
+    const alt = new Database(file);
+    alt.exec(`CREATE TABLE change_item (
+      id TEXT PRIMARY KEY, repo TEXT NOT NULL, branch TEXT NOT NULL,
+      file_path TEXT NOT NULL, change_kind TEXT NOT NULL,
+      commit_id TEXT NOT NULL, commit_short TEXT NOT NULL,
+      author_name TEXT NOT NULL, author_email TEXT NOT NULL, committed_at TEXT NOT NULL,
+      summary TEXT NOT NULL, old_md TEXT, new_md TEXT,
+      cycle_id TEXT NOT NULL, first_seen_at TEXT NOT NULL,
+      UNIQUE (cycle_id, file_path)
+    )`);
+    alt.prepare(`INSERT INTO change_item VALUES
+      ('alt1','r','main','memory-bank/a.md','modify','abc','abc','A','a@x.de','t','s','# alt','# neu','cy1','t')`).run();
+    alt.close();
+
+    const s = new Store(file);
+    expect(s.getChange("alt1")?.commitCount).toBe(1);
+    expect(s.getChange("alt1")?.previousNewMd).toBeNull();
+    expect(() => s.upsertChange({ ...change, id: "alt1", previousNewMd: "# alt", commitCount: 2 })).not.toThrow();
+    expect(s.getChange("alt1")?.commitCount).toBe(2);
+    expect(s.getChange("alt1")?.previousNewMd).toBe("# alt");
     expect(() => new Store(file)).not.toThrow();
     rmSync(dirname(file), { recursive: true, force: true });
   });

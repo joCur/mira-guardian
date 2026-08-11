@@ -159,6 +159,24 @@ describe("AdoPoller", () => {
       await zweiCommits(akzeptiere("g1"));
       expect(s.listChangesByCycle("cy1")[0].oldMd).toBe("v0");
     });
+
+    it("fängt wieder bei einem Commit an", async () => {
+      await zweiCommits(akzeptiere("g1"));
+      const c = s.listChangesByCycle("cy1")[0];
+      expect(c.commitCount).toBe(1);
+      expect(c.previousNewMd).toBeNull(); // nichts zusammengefasst, nichts umzuschalten
+    });
+
+    // Der Zwischenstand ist das Einzige, womit sich der jüngste Commit für sich
+    // allein zeigen lässt — ohne die gemeinsame Basis anzutasten.
+    it("hält bei einer Folgeänderung im Review den Stand davor fest", async () => {
+      s.insertGuardian({ id: "g2", name: "B", email: "b@x.de", initials: "B", avatarColor: "#000", createdAt: "t", isFounder: false });
+      await zweiCommits(akzeptiere("g1"));
+      const c = s.listChangesByCycle("cy1")[0];
+      expect(c.commitCount).toBe(2);
+      expect(c.previousNewMd).toBe("v1");
+      expect(c.oldMd).toBe("v0"); // die gemeinsame Basis bleibt, wo sie war
+    });
   });
 
   // Gegenstück zum Test darüber: stehen bleibt nur eine Basis, die es gibt.
@@ -170,7 +188,7 @@ describe("AdoPoller", () => {
       id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
       commitId: "c1", commitShort: "c1", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
       summary: "v1", oldMd: null, newMd: "v1", previousPath: null,
-      baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t",
+      baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: "cy1", firstSeenAt: "t",
     });
     ado.commits = [{ commitId: "c2", comment: "v2", author: { name: "A", email: "a@x.de", date: "t" } }];
     ado.changesByCommit["c2"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
@@ -217,7 +235,7 @@ describe("AdoPoller", () => {
         id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
         commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
         summary: "Übersetzt", oldMd: null, newMd: "English text", previousPath: null,
-        baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t", ...over,
+        baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: "cy1", firstSeenAt: "t", ...over,
       };
     }
 

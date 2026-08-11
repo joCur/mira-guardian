@@ -27,6 +27,16 @@ export class Store {
     if (!columns("change_item").includes("baseline_commit_id")) {
       this.db.exec("ALTER TABLE change_item ADD COLUMN baseline_commit_id TEXT");
     }
+    // Bestandsdaten fassen womöglich schon mehrere Commits zusammen, ihr
+    // Zwischenstand ist aber nicht mehr da. Sie starten deshalb als
+    // Ein-Commit-Eintrag: kein Umschalter, dafür auch keine falsche Auskunft
+    // darüber, was der jüngste Commit gebracht hat.
+    if (!columns("change_item").includes("previous_new_md")) {
+      this.db.exec("ALTER TABLE change_item ADD COLUMN previous_new_md TEXT");
+    }
+    if (!columns("change_item").includes("commit_count")) {
+      this.db.exec("ALTER TABLE change_item ADD COLUMN commit_count INTEGER NOT NULL DEFAULT 1");
+    }
     if (!columns("invite_code").includes("guardian_id")) {
       this.db.exec("ALTER TABLE invite_code ADD COLUMN guardian_id TEXT");
     }
@@ -140,6 +150,7 @@ export class Store {
     authorName: r.author_name, authorEmail: r.author_email, committedAt: r.committed_at, summary: r.summary,
     oldMd: r.old_md, newMd: r.new_md, previousPath: r.previous_path,
     baselineCommitId: r.baseline_commit_id ?? null,
+    previousNewMd: r.previous_new_md ?? null, commitCount: r.commit_count ?? 1,
     cycleId: r.cycle_id, firstSeenAt: r.first_seen_at });
   upsertChange(c: Change) {
     // Zwei Wege, weil ein Eintrag über zwei Schlüssel identifiziert wird: über
@@ -154,17 +165,18 @@ export class Store {
         author_email=@authorEmail, committed_at=@committedAt, summary=@summary,
         old_md=@oldMd, new_md=@newMd, previous_path=@previousPath,
         baseline_commit_id=@baselineCommitId, cycle_id=@cycleId,
-        first_seen_at=@firstSeenAt
+        first_seen_at=@firstSeenAt, previous_new_md=@previousNewMd, commit_count=@commitCount
         WHERE id=@id`).run(c);
       return;
     }
     this.db.prepare(`INSERT INTO change_item
-      (id,repo,branch,file_path,change_kind,commit_id,commit_short,author_name,author_email,committed_at,summary,old_md,new_md,previous_path,baseline_commit_id,cycle_id,first_seen_at)
-      VALUES (@id,@repo,@branch,@filePath,@changeKind,@commitId,@commitShort,@authorName,@authorEmail,@committedAt,@summary,@oldMd,@newMd,@previousPath,@baselineCommitId,@cycleId,@firstSeenAt)
+      (id,repo,branch,file_path,change_kind,commit_id,commit_short,author_name,author_email,committed_at,summary,old_md,new_md,previous_path,baseline_commit_id,previous_new_md,commit_count,cycle_id,first_seen_at)
+      VALUES (@id,@repo,@branch,@filePath,@changeKind,@commitId,@commitShort,@authorName,@authorEmail,@committedAt,@summary,@oldMd,@newMd,@previousPath,@baselineCommitId,@previousNewMd,@commitCount,@cycleId,@firstSeenAt)
       ON CONFLICT (cycle_id, file_path) DO UPDATE SET
         change_kind=excluded.change_kind, commit_id=excluded.commit_id, commit_short=excluded.commit_short,
         author_name=excluded.author_name, author_email=excluded.author_email, committed_at=excluded.committed_at,
-        summary=excluded.summary, new_md=excluded.new_md, previous_path=excluded.previous_path`).run(c);
+        summary=excluded.summary, new_md=excluded.new_md, previous_path=excluded.previous_path,
+        previous_new_md=excluded.previous_new_md, commit_count=excluded.commit_count`).run(c);
   }
   getChange(id: string): Change | undefined {
     const r = this.db.prepare("SELECT * FROM change_item WHERE id = ?").get(id);

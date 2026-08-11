@@ -9,7 +9,7 @@ import type { ApiClient } from "../src/renderer/api/client.js";
 function change(over: Partial<ChangeWithVotes> = {}): ChangeWithVotes {
   return { id: "c", repo: "r", branch: "main", filePath: "docs/decisions/diagrams/flow.png",
     changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-    committedAt: "t", summary: "s", oldMd: null, newMd: null, previousPath: null, baselineCommitId: "x",
+    committedAt: "t", summary: "s", oldMd: null, newMd: null, previousPath: null, baselineCommitId: "x", previousNewMd: null, commitCount: 1,
     cycleId: "cy", firstSeenAt: "t", votes: [], adoLink: "http://x", ...over };
 }
 
