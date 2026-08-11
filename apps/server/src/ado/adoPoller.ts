@@ -72,10 +72,15 @@ export class AdoPoller {
   /**
    * Der Stand, gegen den die Hüter vergleichen.
    *
-   * Beim ersten Sichten ist das der Stand vor dem Commit. Bei einer
-   * Folgeänderung bleibt die einmal ermittelte Basis stehen — die Hüter sollen
-   * alles sehen, was seit ihrem letzten Blick passiert ist, nicht nur den
-   * jüngsten Commit.
+   * Beim ersten Sichten ist das der Stand vor dem Commit. Solange die Änderung
+   * im Review liegt, bleibt die einmal ermittelte Basis stehen — die Hüter
+   * sollen alles sehen, was seit ihrem letzten Blick passiert ist, nicht nur
+   * den jüngsten Commit.
+   *
+   * Haben dagegen alle Hüter akzeptiert, ist der Vorgang abgeschlossen: dann
+   * wird der akzeptierte Stand zur neuen Basis. Sonst wüchse der Diff auf ewig
+   * weiter und jede Folgeänderung zeigte erneut alles seit dem ersten Sichten
+   * — das Review wäre nicht mehr zu gebrauchen.
    *
    * Fehlt die Basis dagegen, wird sie hier nachgeholt statt weitergeschleppt:
    * `upsertChange` schreibt `old_md` nur beim Anlegen, also bliebe so ein
@@ -86,21 +91,28 @@ export class AdoPoller {
    */
   private async vergleichsbasis(
     existing: Change | undefined, fc: AdoFileChange, kind: ChangeKind,
-    commitId: string, istBild: boolean,
+    commitId: string, istBild: boolean, abgeschlossen: boolean,
   ): Promise<string | null> {
-    if (existing?.oldMd != null) return existing.oldMd;
+    if (existing?.oldMd != null && !abgeschlossen) return existing.oldMd;
     // Neu angelegt heißt: es gibt naturgemäß keinen Vorgängerstand. Beim reinen
     // Verschieben gibt es nichts zu vergleichen — und der alte Pfad ist im
     // Commit selbst schon weg, ADO kennt dazu keinen Stand. Bilder tragen ihren
     // Inhalt nicht in der Datenbank; beide Seiten holt die Bildroute.
     if (kind === "add" || kind === "rename" || istBild) return null;
-    // Wurde die Datei zuerst nur verschoben und erst jetzt inhaltlich geändert,
-    // ist der Stand aus dem Verschiebe-Commit die Basis: dort war der Inhalt
-    // nachweislich derselbe wie davor (gleiche Blob-Id in ADO).
-    if (existing?.changeKind === "rename" && existing.newMd != null) return existing.newMd;
+    // Zwei Wege zum selben Schluss: Ist der Vorgang abgeschlossen, ist der
+    // akzeptierte Stand die Basis. Wurde die Datei zuerst nur verschoben und
+    // erst jetzt inhaltlich geändert, ist es der Stand aus dem
+    // Verschiebe-Commit — dort war der Inhalt nachweislich derselbe wie davor
+    // (gleiche Blob-Id in ADO).
+    if ((abgeschlossen || existing?.changeKind === "rename") && existing?.newMd != null) return existing.newMd;
+    // Ohne brauchbaren festgehaltenen Stand fragen wir ADO. Ein abgeschlossener
+    // Vorgang fängt dabei von vorn an — Pfad und Bezugspunkt sind die des
+    // aktuellen Commits, nicht die des alten Eintrags.
+    if (!existing || abgeschlossen) {
+      return this.ado.getItemContentBefore(fc.previousPath ?? fc.path, commitId);
+    }
     return this.ado.getItemContentBefore(
-      existing ? existing.previousPath ?? existing.filePath : fc.previousPath ?? fc.path,
-      existing?.baselineCommitId ?? commitId);
+      existing.previousPath ?? existing.filePath, existing.baselineCommitId ?? commitId);
   }
 
   async pollOnce(): Promise<string[]> {
@@ -166,10 +178,16 @@ export class AdoPoller {
         // ein Binärinhalt nur beschädigt an. Beide Seiten holt stattdessen die
         // Bildroute beim Anzeigen direkt aus ADO.
         const istBild = istBilddatei(fc.path);
+        // Von allen akzeptiert heißt: durch. Was jetzt kommt, ist ein eigener
+        // Vorgang und fängt einen neuen Vergleich an — der Eintrag behält nur
+        // seine Identität. Liegt dagegen noch eine Bewertung aus, sammelt er
+        // weiter, damit niemand einen Zwischenstand übersieht.
+        const abgeschlossen = existing !== undefined && this.changes.allAccepted(existing.id);
         const newMd = kind === "delete" || istBild
           ? null
           : await this.ado.getItemContent(fc.path, commit.commitId);
-        const oldMd = await this.vergleichsbasis(existing, fc, kind, commit.commitId, istBild);
+        const oldMd = await this.vergleichsbasis(existing, fc, kind, commit.commitId, istBild, abgeschlossen);
+        const fortgesetzt = existing !== undefined && !abgeschlossen;
         const change: Change = {
           id: existing?.id ?? randomUUID(),
           repo, branch, filePath: fc.path, changeKind: kind,
@@ -179,15 +197,23 @@ export class AdoPoller {
           oldMd, newMd, previousPath: fc.previousPath ?? null,
           // Bezugspunkt für die Vorher-Seite. Wie oldMd bleibt er beim ersten
           // erfassten Commit stehen, damit eine Folgeänderung den Vergleich
-          // nicht auf den jüngsten Zwischenstand verkürzt.
-          baselineCommitId: existing?.baselineCommitId ?? commit.commitId,
-          cycleId: cycle.id, firstSeenAt: existing?.firstSeenAt ?? this.now(),
+          // nicht auf den jüngsten Zwischenstand verkürzt — und rückt mit ihm
+          // nach, sobald der Vorgang abgeschlossen war.
+          baselineCommitId: (fortgesetzt ? existing.baselineCommitId : null) ?? commit.commitId,
+          cycleId: cycle.id,
+          // Ebenfalls neu beim abgeschlossenen Vorgang: sonst bliebe die neue
+          // Änderung hinter der Wasserlinie des Catch-ups zurück und die Hüter
+          // erführen beim nächsten Start nichts von ihr.
+          firstSeenAt: fortgesetzt ? existing.firstSeenAt : this.now(),
         };
         this.store.upsertChange(change);
         if (existing) this.store.resetVotesForChange(change.id, this.now());
         this.changes.ensureVotesForChange(change.id, this.now());
         if (!touched.includes(change.id)) touched.push(change.id);
-        this.onChange(change.id, !existing);
+        // Ein abgeschlossener Vorgang, der wieder aufmacht, ist für die Hüter
+        // eine neue Änderung — also auch mit Hinweis, nicht nur stiller
+        // Aktualisierung einer Zeile, die sie längst abgehakt hatten.
+        this.onChange(change.id, !fortgesetzt);
       }
     }
     this.store.setLastSeenCommit(repo, branch, fresh[0].commitId); // newest

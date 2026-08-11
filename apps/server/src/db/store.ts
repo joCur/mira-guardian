@@ -153,7 +153,8 @@ export class Store {
         commit_id=@commitId, commit_short=@commitShort, author_name=@authorName,
         author_email=@authorEmail, committed_at=@committedAt, summary=@summary,
         old_md=@oldMd, new_md=@newMd, previous_path=@previousPath,
-        baseline_commit_id=@baselineCommitId, cycle_id=@cycleId
+        baseline_commit_id=@baselineCommitId, cycle_id=@cycleId,
+        first_seen_at=@firstSeenAt
         WHERE id=@id`).run(c);
       return;
     }
