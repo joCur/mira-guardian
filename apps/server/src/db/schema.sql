@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS change_item (
   commit_id TEXT NOT NULL, commit_short TEXT NOT NULL,
   author_name TEXT NOT NULL, author_email TEXT NOT NULL, committed_at TEXT NOT NULL,
   summary TEXT NOT NULL, old_md TEXT, new_md TEXT, previous_path TEXT,
+  previous_new_md TEXT, commit_count INTEGER NOT NULL DEFAULT 1,
   cycle_id TEXT NOT NULL, first_seen_at TEXT NOT NULL,
   UNIQUE (cycle_id, file_path)
 );

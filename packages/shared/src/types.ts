@@ -48,6 +48,15 @@ export interface Change {
    * den festgehaltenen Bezugspunkt. Null bei Einträgen aus der Zeit davor.
    */
   baselineCommitId: string | null;
+  /**
+   * Der Stand vor dem jüngsten Commit — also newMd, wie es vor der letzten
+   * Fortschreibung aussah. Fasst ein Eintrag mehrere Commits zusammen, lässt
+   * sich damit der jüngste für sich allein zeigen, ohne die gemeinsame
+   * Vergleichsbasis anzutasten. Null, solange nur ein Commit erfasst ist.
+   */
+  previousNewMd: string | null;
+  /** Wie viele Commits dieser Eintrag zusammenfasst; mindestens 1. */
+  commitCount: number;
   cycleId: string;
   firstSeenAt: string;
 }

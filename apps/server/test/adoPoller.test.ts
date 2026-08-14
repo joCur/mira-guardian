@@ -87,7 +87,7 @@ describe("AdoPoller", () => {
     expect(s.listChangesByCycle("cy1")[0].oldMd).toBeNull();
   });
 
-  it("behält bei einer Folgeänderung die ursprüngliche Vergleichsbasis", async () => {
+  it("behält bei einer Folgeänderung im Review die ursprüngliche Vergleichsbasis", async () => {
     ado.commits = [{ commitId: "c1", comment: "v1", author: { name: "A", email: "a@x.de", date: "t" } }];
     ado.changesByCommit["c1"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
     ado.contentByCommit["c1"] = { "memory-bank/a.md": "v1" };
@@ -108,6 +108,77 @@ describe("AdoPoller", () => {
     expect(c.newMd).toBe("v2");
   });
 
+  // Gegenstück: Ohne diesen Schnitt wüchse der Diff für immer weiter und jede
+  // Folgeänderung zeigte erneut alles seit dem allerersten Sync — dann ist
+  // nicht mehr zu erkennen, was sich tatsächlich geändert hat.
+  describe("nach vollständiger Annahme", () => {
+    const zweiCommits = async (annehmen: () => void) => {
+      ado.commits = [{ commitId: "c1", comment: "Übersetzt", author: { name: "A", email: "a@x.de", date: "t" } }];
+      ado.changesByCommit["c1"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
+      ado.contentByCommit["c1"] = { "memory-bank/a.md": "v1" };
+      ado.contentBeforeCommit["c1"] = { "memory-bank/a.md": "v0" };
+      await poller.pollOnce();
+      annehmen();
+
+      ado.commits = [
+        { commitId: "c2", comment: "Kleine Anpassung", author: { name: "A", email: "a@x.de", date: "t" } },
+        { commitId: "c1", comment: "Übersetzt", author: { name: "A", email: "a@x.de", date: "t" } },
+      ];
+      ado.changesByCommit["c2"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
+      ado.contentByCommit["c2"] = { "memory-bank/a.md": "v2" };
+      ado.contentBeforeCommit["c2"] = { "memory-bank/a.md": "v1" };
+      await poller.pollOnce();
+    };
+    const akzeptiere = (guardianId: string) => () => {
+      const c = s.listChangesByCycle("cy1")[0];
+      s.upsertVote({ changeId: c.id, guardianId, status: "akzeptiert", comment: null, updatedAt: "t" });
+    };
+
+    it("zeigt die Folgeänderung gegen den akzeptierten Stand", async () => {
+      await zweiCommits(akzeptiere("g1"));
+      const nachher = s.listChangesByCycle("cy1");
+      expect(nachher).toHaveLength(1); // derselbe Eintrag, kein zweiter daneben
+      expect(nachher[0].oldMd).toBe("v1"); // nicht "v0": die Übersetzung ist durch
+      expect(nachher[0].newMd).toBe("v2");
+      expect(nachher[0].baselineCommitId).toBe("c2");
+      expect(s.listVotesByChange(nachher[0].id)[0].status).toBe("offen");
+    });
+
+    it("stellt die Änderung als frisch aufgelaufen zu", async () => {
+      let vorher = "";
+      await zweiCommits(() => { vorher = s.listChangesByCycle("cy1")[0].firstSeenAt; akzeptiere("g1")(); });
+      // Sonst bliebe sie hinter der Wasserlinie des Catch-ups verborgen. Der
+      // Tick der Test-Uhr ("t7", "t10") sortiert nicht als Text — anders als
+      // die ISO-Zeitstempel im Betrieb, mit denen das Catch-up vergleicht.
+      const tick = (s: string) => Number(s.slice(1));
+      expect(tick(s.listChangesByCycle("cy1")[0].firstSeenAt)).toBeGreaterThan(tick(vorher));
+    });
+
+    it("sammelt weiter, solange ein Hüter noch nicht bewertet hat", async () => {
+      s.insertGuardian({ id: "g2", name: "B", email: "b@x.de", initials: "B", avatarColor: "#000", createdAt: "t", isFounder: false });
+      await zweiCommits(akzeptiere("g1"));
+      expect(s.listChangesByCycle("cy1")[0].oldMd).toBe("v0");
+    });
+
+    it("fängt wieder bei einem Commit an", async () => {
+      await zweiCommits(akzeptiere("g1"));
+      const c = s.listChangesByCycle("cy1")[0];
+      expect(c.commitCount).toBe(1);
+      expect(c.previousNewMd).toBeNull(); // nichts zusammengefasst, nichts umzuschalten
+    });
+
+    // Der Zwischenstand ist das Einzige, womit sich der jüngste Commit für sich
+    // allein zeigen lässt — ohne die gemeinsame Basis anzutasten.
+    it("hält bei einer Folgeänderung im Review den Stand davor fest", async () => {
+      s.insertGuardian({ id: "g2", name: "B", email: "b@x.de", initials: "B", avatarColor: "#000", createdAt: "t", isFounder: false });
+      await zweiCommits(akzeptiere("g1"));
+      const c = s.listChangesByCycle("cy1")[0];
+      expect(c.commitCount).toBe(2);
+      expect(c.previousNewMd).toBe("v1");
+      expect(c.oldMd).toBe("v0"); // die gemeinsame Basis bleibt, wo sie war
+    });
+  });
+
   // Gegenstück zum Test darüber: stehen bleibt nur eine Basis, die es gibt.
   // Fehlt sie, schleppte der Folgecommit sie früher als "fehlt" weiter — der
   // Eintrag zeigte dauerhaft das ganze Dokument statt des Unterschieds, weil
@@ -117,7 +188,7 @@ describe("AdoPoller", () => {
       id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
       commitId: "c1", commitShort: "c1", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
       summary: "v1", oldMd: null, newMd: "v1", previousPath: null,
-      baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t",
+      baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: "cy1", firstSeenAt: "t",
     });
     ado.commits = [{ commitId: "c2", comment: "v2", author: { name: "A", email: "a@x.de", date: "t" } }];
     ado.changesByCommit["c2"] = [{ path: "memory-bank/a.md", changeType: "edit" }];
@@ -164,7 +235,7 @@ describe("AdoPoller", () => {
         id: "ch1", repo: "R", branch: "main", filePath: "memory-bank/a.md", changeKind: "modify",
         commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de", committedAt: "t",
         summary: "Übersetzt", oldMd: null, newMd: "English text", previousPath: null,
-        baselineCommitId: null, cycleId: "cy1", firstSeenAt: "t", ...over,
+        baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: "cy1", firstSeenAt: "t", ...over,
       };
     }
 

@@ -25,7 +25,7 @@ function change(over: Partial<Change> = {}): Change {
     id: "c1", repo: "R", branch: "main", filePath: "docs/decisions/diagrams/flow.png",
     changeKind: "modify", commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de",
     committedAt: "t", summary: "s", oldMd: null, newMd: null, previousPath: null,
-    baselineCommitId: "c9", cycleId: "cy", firstSeenAt: "t", ...over,
+    baselineCommitId: "c9", previousNewMd: null, commitCount: 1, cycleId: "cy", firstSeenAt: "t", ...over,
   };
 }
 

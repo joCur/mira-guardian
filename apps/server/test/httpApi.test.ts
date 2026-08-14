@@ -70,7 +70,7 @@ describe("HTTP API", () => {
     const cycle = ctx.store.getOpenCycle()!;
     ctx.store.upsertChange({ id: "c1", repo: "R", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, cycleId: cycle.id, firstSeenAt: "t" });
+      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: cycle.id, firstSeenAt: "t" });
     ctx.changeService.ensureVotesForChange("c1", now());
     await ctx.app.inject({ method: "POST", url: "/changes/c1/vote",
       headers: { authorization: `Bearer ${token}` }, payload: { status: "akzeptiert" } });
@@ -91,7 +91,7 @@ describe("HTTP API", () => {
     const cycle = ctx.store.getOpenCycle()!;
     ctx.store.upsertChange({ id: "c1", repo: "R", branch: "main", filePath: "memory-bank/a.md",
       changeKind: "modify", commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de",
-      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, cycleId: cycle.id, firstSeenAt: "t" });
+      committedAt: "t", summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: cycle.id, firstSeenAt: "t" });
     ctx.changeService.ensureVotesForChange("c1", now());
 
     const bad = await ctx.app.inject({ method: "POST", url: "/changes/c1/vote",
@@ -130,7 +130,7 @@ describe("HTTP API", () => {
       store.upsertChange({ id: "b1", repo: "R", branch: "main", filePath: "docs/decisions/flow.png",
         changeKind: "modify", commitId: "c9", commitShort: "c9", authorName: "A", authorEmail: "a@x.de",
         committedAt: "t", summary: "s", oldMd: null, newMd: null, previousPath: null,
-        baselineCommitId: "c9", cycleId: store.getOpenCycle()!.id, firstSeenAt: "t" });
+        baselineCommitId: "c9", previousNewMd: null, commitCount: 1, cycleId: store.getOpenCycle()!.id, firstSeenAt: "t" });
     }
 
     it("liefert das Bild mit seinem Bildtyp aus", async () => {

@@ -7,7 +7,7 @@ const NOW = "2026-07-21T12:00:00.000Z";
 function ch(id: string, firstSeenAt: string, myStatus: "offen" | "akzeptiert"): ChangeWithVotes {
   return { id, repo: "r", branch: "main", filePath: `memory-bank/${id}.md`, changeKind: "modify",
     commitId: "x", commitShort: "x", authorName: "A", authorEmail: "a@x.de", committedAt: firstSeenAt,
-    summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, cycleId: "cy", firstSeenAt,
+    summary: "s", oldMd: "o", newMd: "n", previousPath: null, baselineCommitId: null, previousNewMd: null, commitCount: 1, cycleId: "cy", firstSeenAt,
     votes: [{ changeId: id, guardianId: "me", status: myStatus, comment: null, updatedAt: firstSeenAt }],
     adoLink: "http://x" };
 }
