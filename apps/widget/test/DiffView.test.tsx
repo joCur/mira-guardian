@@ -160,6 +160,18 @@ describe("DiffView bei mehreren Commits", () => {
     expect(screen.queryByRole("group", { name: /Umfang/ })).toBeNull();
   });
 
+  // Server und Widget werden nicht zusammen aktualisiert. Ein Server ohne die
+  // beiden Felder liefert sie schlicht nicht mit — das darf die Anzeige nicht
+  // zerlegen, sondern nur den Umschalter weglassen.
+  it("kommt mit einem Server ohne die neuen Felder zurecht", () => {
+    const alt = gestaffelt();
+    delete (alt as Partial<ChangeWithVotes>).commitCount;
+    delete (alt as Partial<ChangeWithVotes>).previousNewMd;
+    const { container } = render(<DiffView change={alt} />);
+    expect(screen.queryByRole("group", { name: /Umfang/ })).toBeNull();
+    expect(container.textContent).toContain("Deutscher");
+  });
+
   it("zeigt standardmäßig alles seit der Basis", () => {
     const { container } = render(<DiffView change={gestaffelt()} />);
     expect(container.textContent).toContain("Deutscher");
