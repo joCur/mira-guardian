@@ -4,6 +4,7 @@ import { registerIpc } from "./ipc.js";
 import { initUpdater, registerUpdaterIpc } from "./updater.js";
 import { tokenStore } from "./tokenStore.js";
 import { TRAY_ICON_16_TEMPLATE, TRAY_ICON_32_TEMPLATE, TRAY_ICON_32_LIGHT } from "./trayIcon.js";
+import { WINDOW_ICON_256 } from "./windowIcon.js";
 
 let win: BrowserWindow | null = null;
 let toastWin: BrowserWindow | null = null;
@@ -71,6 +72,8 @@ function createWindow() {
       // daher y:14 für eine optisch zentrierte Mitte bei ~21.5px.
       ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 18, y: 14 } }
       : { frame: false as const }),
+    // Nur Linux braucht das Icon explizit — siehe windowIcon.ts.
+    ...(process.platform === "linux" ? { icon: nativeImage.createFromDataURL(WINDOW_ICON_256) } : {}),
     webPreferences: { preload: join(import.meta.dirname, "../preload/index.mjs"), contextIsolation: true, sandbox: false },
   });
   guardWindowNavigation(win);
