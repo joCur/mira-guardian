@@ -6,6 +6,15 @@ import { tokenStore } from "./tokenStore.js";
 import { TRAY_ICON_16_TEMPLATE, TRAY_ICON_32_TEMPLATE, TRAY_ICON_32_LIGHT } from "./trayIcon.js";
 import { WINDOW_ICON_256 } from "./windowIcon.js";
 
+// Ohne diesen Hinweis startet Electron unter Linux über XWayland, auch in einer
+// Wayland-Sitzung. XWayland kennt keine gebrochene Skalierung: Bei einem
+// Monitor auf z. B. 125 % rendert es das Fenster mit Faktor 1, und der
+// Compositor skaliert das fertige Bild hoch — Text verwäscht sichtbar, während
+// nativ gezeichnete Oberflächen daneben scharf bleiben. Mit "auto" zeichnet
+// Chromium direkt auf Wayland und rendert für den echten Skalierungsfaktor,
+// also pixelgenau. Auf X11-Sitzungen fällt der Hint von selbst auf X11 zurück.
+if (process.platform === "linux") app.commandLine.appendSwitch("ozone-platform-hint", "auto");
+
 let win: BrowserWindow | null = null;
 let toastWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
