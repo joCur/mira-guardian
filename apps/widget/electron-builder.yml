@@ -65,6 +65,13 @@ linux:
   target:
     - AppImage
     - deb
+  # Ein Verzeichnis statt build/icon.png: aus der einzelnen 1024er-Datei packt
+  # electron-builder nur die Größe 1024x1024 ins Paket. Die kennt das
+  # hicolor-Theme nicht — dessen index.theme endet bei 512x512, und
+  # Verzeichnisse, die dort fehlen, überspringt der Icon-Lookup vollständig.
+  # Das Ergebnis war ein generisches Icon in der Taskleiste, obwohl die
+  # .desktop-Datei mit Icon=guardian auf das mitgelieferte Icon zeigte.
+  icon: build/icons
   category: Development
   maintainer: MediaInterface GmbH
   artifactName: mira-guardian-${version}-linux-${arch}.${ext}
