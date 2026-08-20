@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  /* Grundgewicht 500 statt der 400 aus dem Tailwind-Standard. Die Oberfläche
+     läuft komplett auf einer Monospace (siehe tailwind.config.js), und deren
+     Regular trägt im Fließtext weniger als eine Proportionalschrift gleicher
+     Größe — bei 12px Grundtext wirkt die Fläche damit ausgewaschen. 500 ist
+     ein echter mitgelieferter Schnitt (main.tsx lädt ihn bereits), also keine
+     synthetische Verdickung eines 400ers, die Kanten verschmieren würde.
+     `font-semibold`/`font-bold` an Hervorhebungen überschreiben den Wert
+     weiterhin, und `b`/`strong` bleiben über Preflights `bolder` relativ. */
+  body { font-weight: 500; }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { @apply bg-ctp-surface1 rounded-[5px]; }
   ::-webkit-scrollbar-track { background: transparent; }
